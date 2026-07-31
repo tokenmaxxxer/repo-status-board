@@ -5,6 +5,7 @@ const HEADER_META = document.getElementById("header-meta");
 const SUMMARY_STRIP = document.getElementById("summary-strip");
 const PARTIAL_BANNER = document.getElementById("partial-banner");
 const MAIN = document.getElementById("main-content");
+const DETAIL_SLOT = document.getElementById("detail-panel-slot");
 
 /* ---- pure state-selection / formatting helpers (no DOM) ---- */
 
@@ -65,6 +66,7 @@ function renderSkeleton() {
     .map(() => `<span class="chip skeleton" style="width:8em;"></span>`)
     .join("");
   PARTIAL_BANNER.innerHTML = "";
+  DETAIL_SLOT.innerHTML = "";
   MAIN.innerHTML = ["Decision queue", "Flows", "Sessions", "Accounting", "Hygiene"]
     .map((title) => `
       <section class="region">
@@ -80,6 +82,7 @@ function renderFullError(message) {
   HEADER_META.textContent = "";
   SUMMARY_STRIP.innerHTML = "";
   PARTIAL_BANNER.innerHTML = "";
+  DETAIL_SLOT.innerHTML = "";
   MAIN.innerHTML = `
     <div class="error-state">
       <h1>Couldn't load board status</h1>
@@ -228,6 +231,12 @@ function attachRowClickHandlers(data) {
 }
 
 function renderData(data) {
+  const succeededRepoCount = Object.keys(data.generated_at_by_repo).length;
+  if (data.errors.length > 0 && succeededRepoCount === 0) {
+    renderFullError(data.errors.map((e) => `${e.repo}: ${e.message}`).join("; "));
+    return;
+  }
+
   const repoCount = Object.keys(data.generated_at_by_repo).length + data.errors.length;
   HEADER_META.textContent = `as of ${data.generated_at} — ${repoCount} repos, ${data.errors.length} errors`;
 
@@ -254,6 +263,7 @@ function renderData(data) {
 
   if (isPageEmpty(data)) {
     MAIN.innerHTML = `<div class="empty-state">No activity to show for the configured repos.</div>`;
+    DETAIL_SLOT.innerHTML = "";
     return;
   }
 
@@ -279,8 +289,8 @@ function renderData(data) {
       <h2>Accounting</h2>
       ${renderAccounting(data.ledger, data.unattributed)}
     </section>
-    ${selectedIssue ? renderDetailPanel(data, selectedIssue.issue, selectedIssue.repo) : ""}
   `;
+  DETAIL_SLOT.innerHTML = selectedIssue ? renderDetailPanel(data, selectedIssue.issue, selectedIssue.repo) : "";
   attachRowClickHandlers(data);
 }
 
