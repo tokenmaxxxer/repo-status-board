@@ -185,7 +185,7 @@ table.data-table tbody tr:hover { background: var(--color-status-neutral-backgro
   margin-bottom: var(--space-4);
 }
 .partial-banner a, .partial-banner button.link {
-  color: var(--color-action-primary-foreground);
+  color: var(--color-status-warning-foreground);
   background: none;
   border: none;
   text-decoration: underline;
@@ -227,6 +227,20 @@ table.data-table tbody tr:hover { background: var(--color-status-neutral-backgro
 }
 .detail-panel > * + * { margin-top: var(--space-4); }
 
+#page-body {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
 @media (min-width: 1200px) {
+  #page-body:has(#detail-panel-slot:not(:empty)) {
+    grid-template-columns: 1fr minmax(280px, 340px);
+    align-items: start;
+  }
   .detail-panel { position: sticky; top: var(--space-4); }
+}
+
+@media (max-width: 768px) {
+  .summary-strip { gap: var(--space-2); }
 }
