@@ -8,8 +8,11 @@ import time
 from rsb.config import ConfigError, load_config, resolve_config_path
 from rsb.fetch import fetch_board
 from rsb.render import CLEAR_SCREEN, render_json_model, render_text
+from rsb.webserver import run_server
 
 DEFAULT_WATCH_INTERVAL = 30
+DEFAULT_SERVE_HOST = "127.0.0.1"
+DEFAULT_SERVE_PORT = 8420
 
 
 def build_arg_parser():
@@ -28,6 +31,13 @@ def build_arg_parser():
     watch_group.add_argument("--once", action="store_true", help="single render and exit (default behavior)")
     parser.add_argument("--no-color", action="store_true", help="disable ANSI styling")
     parser.add_argument("--json", action="store_true", help="print normalized payload as JSON instead of rendering")
+
+    subparsers = parser.add_subparsers(dest="command")
+    serve_parser = subparsers.add_parser("serve", help="serve the web dashboard over HTTP")
+    serve_parser.add_argument("--host", default=DEFAULT_SERVE_HOST, help=f"bind host (default {DEFAULT_SERVE_HOST})")
+    serve_parser.add_argument("--port", type=int, default=DEFAULT_SERVE_PORT, help=f"bind port (default {DEFAULT_SERVE_PORT})")
+    serve_parser.add_argument("--log", metavar="PATH", help="H1 request-log file path (default: no logging)")
+
     return parser
 
 
@@ -70,6 +80,11 @@ def main(argv=None):
     except ConfigError as e:
         print(f"rsb: {e}", file=sys.stderr)
         return 2
+
+    if getattr(args, "command", None) == "serve":
+        print(f"rsb: serving dashboard on http://{args.host}:{args.port}")
+        run_server(repo_configs, args.host, args.port, fetch_board, log_path=args.log)
+        return 0
 
     if args.watch is not None:
         interval = args.watch
