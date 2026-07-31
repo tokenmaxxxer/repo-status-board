@@ -1,0 +1,18 @@
+[project]
+name = "repo-status-board"
+version = "0.1.0"
+description = "Status board CLI consuming tokenmaxxxer's `spawn.py flows --json`"
+requires-python = ">=3.10"
+dependencies = [
+    "tomli>=2.0; python_version < '3.11'",
+]
+
+[project.scripts]
+rsb = "rsb.cli:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
