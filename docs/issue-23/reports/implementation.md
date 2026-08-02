@@ -273,13 +273,12 @@ closed_checks:
   policy (not just describes behavior), and (c) the new
   `test_normalize_plan_missing_key_is_treated_as_none` test uses a
   payload where the key is verifiably absent (`assert "plan" not in
-  ...`), not accidentally set to `None` — passed at commit
-  `<filled in by follow-up commit — see git log>`.
+  ...`), not accidentally set to `None` — passed at commit `a858b80`.
 - finding-2-aggregation-wording: re-read `dashboard.js`'s
   `isFlowInProgress()` comment and confirmed it no longer claims exact
   counting and explicitly names the over-count failure mode; re-read
   this record's finding-#2 section for the same — passed at commit
-  `<filled in by follow-up commit — see git log>`.
+  `a858b80`.
 - finding-3-detail-render-spec: re-ran
   `test_dashboard_js_plan_steps_sorted_by_step_number_ascending`,
   `..._join_shows_all_pending_prs_not_just_first`, and
@@ -287,12 +286,11 @@ closed_checks:
   part of the full suite) to confirm each fails if its corresponding
   fix is reverted by hand (checked by temporarily reverting
   `buildPlanSteps()`'s `.sort()` call and re-running — the sort test
-  failed as expected, then restored) — passed at commit
-  `<filled in by follow-up commit — see git log>`.
+  failed as expected, then restored) — passed at commit `a858b80`.
 - finding-4-accessibility-out-of-scope: grepped this diff for
   `aria-`, `tabindex`, `role="button"`, keyboard event handlers — none
   present; confirmed no accessibility code was added — passed at commit
-  `<filled in by follow-up commit — see git log>`.
+  `a858b80`.
 
 ## Next steps
 
