@@ -1,0 +1,72 @@
+name: Deploy board
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo-status-board
+        uses: actions/checkout@v4
+
+      - name: Checkout on-the-record
+        uses: actions/checkout@v4
+        with:
+          repository: tokenmaxxxer/on-the-record
+          path: _boards/on-the-record
+
+      - name: Checkout tokenmaxxxer-core
+        uses: actions/checkout@v4
+        with:
+          repository: tokenmaxxxer/tokenmaxxxer-core
+          path: _boards/tokenmaxxxer-core
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install rsb
+        run: pip install -e .
+
+      - name: Generate board.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: rsb --config .github/boards.ci.toml --json > board.json
+
+      - name: Assemble Pages site
+        run: |
+          mkdir -p _site/api
+          cp -r src/rsb/web/* _site/
+          cp board.json _site/api/board.json
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

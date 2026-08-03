@@ -1,0 +1,14 @@
+[[repo]]
+name = "on-the-record"
+path = "_boards/on-the-record"
+command = ["python3", "_boards/on-the-record/spawn.py"]
+
+[[repo]]
+name = "repo-status-board"
+path = "."
+command = ["python3", "_boards/on-the-record/spawn.py"]
+
+[[repo]]
+name = "tokenmaxxxer-core"
+path = "_boards/tokenmaxxxer-core"
+command = ["python3", "_boards/on-the-record/spawn.py"]
