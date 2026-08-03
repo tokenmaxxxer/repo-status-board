@@ -148,8 +148,35 @@ table.data-table th, table.data-table td {
   border-bottom: 1px solid var(--color-border-default);
   text-align: left;
 }
-table.data-table tbody tr { cursor: pointer; }
-table.data-table tbody tr:hover { background: var(--color-status-neutral-background); }
+
+/* Each table scrolls horizontally on its own (issue #29 requirement 3) —
+   independent of the page, no separate mobile card UI. */
+.table-scroll { overflow-x: auto; }
+
+/* Issue-cell disclosure trigger (issue #23 execution-observation finding;
+   issue #29 requirement 5) — the row itself is no longer the click target,
+   this button is. Strip default button chrome, inherit table typography. */
+.row-toggle {
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+.row-toggle:focus-visible {
+  outline: 2px solid var(--color-blue-500);
+  outline-offset: 2px;
+}
+
+/* Narrow-screen (< breakpoint-lg) inline equivalent of .detail-panel —
+   same visual treatment, injected as a <tr><td> below the toggled row. */
+.detail-row td {
+  border: 1px solid var(--color-border-default);
+  background: var(--color-surface-raised);
+  padding: var(--space-4);
+}
 
 .badge {
   display: inline-block;
@@ -192,6 +219,13 @@ table.data-table tbody tr:hover { background: var(--color-status-neutral-backgro
   cursor: pointer;
   padding: 0;
   font: inherit;
+}
+.partial-banner summary {
+  cursor: pointer;
+  margin-top: var(--space-2);
+}
+.partial-banner details[open] summary {
+  margin-bottom: var(--space-2);
 }
 
 /* Full-page ErrorState */

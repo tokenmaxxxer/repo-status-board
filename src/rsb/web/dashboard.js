@@ -6,6 +6,19 @@ const SUMMARY_STRIP = document.getElementById("summary-strip");
 const PARTIAL_BANNER = document.getElementById("partial-banner");
 const MAIN = document.getElementById("main-content");
 const DETAIL_SLOT = document.getElementById("detail-panel-slot");
+const REPO_FILTER = document.getElementById("repo-filter");
+
+// Detail-panel layout switch — matches dashboard.css's
+// `@media (min-width: 1200px)` rule (design-system.md's `breakpoint-lg`).
+// At/above this width: detail renders into the fixed DETAIL_SLOT side
+// panel. Below it: detail renders as an expandable `<tr>` inline in the
+// table that triggered the selection (see insertDetailRow()).
+const WIDE_LAYOUT_QUERY = "(min-width: 1200px)";
+
+// Fetched board payload, promoted to module scope (was local to load())
+// so the repo-filter `<select>`'s `change` handler can re-render a
+// filtered view without a refetch.
+let boardData = null;
 
 /* ---- pure state-selection / formatting helpers (no DOM) ---- */
 
@@ -82,6 +95,43 @@ function isPageEmpty(data) {
     && data.unapproved_open_prs.length === 0;
 }
 
+// Client-side repo filter for the repo-filter `<select>` (issue #29
+// requirement 2) — recomputes a repo-scoped view of an already-fetched
+// payload with no refetch. Pure/DOM-free so it gets `node -e` coverage via
+// the module.exports guard below, same convention as buildPlanSteps.
+// `repo` falsy (e.g. the "All repos" option's value `""`) returns `data`
+// unchanged; otherwise every per-issue section is filtered to `.repo ===
+// repo` and `generated_at_by_repo` is narrowed to just that repo's key.
+function filterByRepo(data, repo) {
+  if (!repo) return data;
+  return {
+    ...data,
+    decisions: data.decisions.filter((d) => d.repo === repo),
+    flows: data.flows.filter((f) => f.repo === repo),
+    sessions: data.sessions.filter((s) => s.repo === repo),
+    ledger: data.ledger.filter((le) => le.repo === repo),
+    unattributed: data.unattributed.filter((u) => u.repo === repo),
+    closure_sweep: data.closure_sweep.filter((v) => v.repo === repo),
+    unapproved_open_prs: data.unapproved_open_prs.filter((u) => u.repo === repo),
+    errors: data.errors.filter((e) => e.repo === repo),
+    generated_at_by_repo: Object.fromEntries(
+      Object.entries(data.generated_at_by_repo).filter(([repoKey]) => repoKey === repo)
+    ),
+  };
+}
+
+// Repo-list source for populating the repo-filter `<select>`: the union of
+// repos that succeeded (`generated_at_by_repo` keys) and repos that failed
+// (`errors[].repo`) — i.e. every repo the board is configured for,
+// regardless of load outcome.
+function repoList(data) {
+  const repos = new Set([
+    ...Object.keys(data.generated_at_by_repo),
+    ...data.errors.map((e) => e.repo),
+  ]);
+  return Array.from(repos).sort();
+}
+
 /* ---- render fragments ---- */
 
 function renderSkeleton() {
@@ -123,7 +173,38 @@ function renderTable(headers, rows, emptyMessage) {
   }
   const head = `<tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr>`;
   const body = rows.map((r) => `<tr data-issue="${r.issue}" data-repo="${escapeHtml(r.repo)}">${r.cells.join("")}</tr>`).join("");
-  return `<table class="data-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+  // `.table-scroll` (dashboard.css) gives each table its own horizontal
+  // scroll container independent of the page — one shared change point
+  // covers all four dashboard tables (decisions/flows/sessions/ledger),
+  // since they all route through this function.
+  return `<div class="table-scroll"><table class="data-table"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+}
+
+// Issue-cell disclosure trigger (issue #23 execution-observation's
+// click-only-row finding; issue #29 requirement 5) — a real <button> per
+// WAI-ARIA APG's disclosure pattern, not a clickable <tr>. `sourceTable`
+// identifies which of the four tables this button belongs to, so the
+// narrow-screen expandable row (insertDetailRow()) only ever expands the
+// one row the user actually clicked, never every table showing the same
+// (issue, repo).
+function rowToggleId(sourceTable, repo, issue) {
+  const safeRepo = String(repo).replace(/[^a-zA-Z0-9_-]/g, "-");
+  return `detail-row-${sourceTable}-${safeRepo}-${issue}`;
+}
+
+function isRowExpanded(sourceTable, issue, repo) {
+  return !!(
+    selectedIssue
+    && selectedIssue.sourceTable === sourceTable
+    && selectedIssue.issue === issue
+    && selectedIssue.repo === repo
+  );
+}
+
+function issueToggleCell(sourceTable, issue, repo) {
+  const expanded = isRowExpanded(sourceTable, issue, repo);
+  const controlsId = rowToggleId(sourceTable, repo, issue);
+  return `<button type="button" class="row-toggle" aria-expanded="${expanded}" aria-controls="${controlsId}" data-issue="${issue}" data-repo="${escapeHtml(repo)}" data-table="${sourceTable}">${issue}</button>`;
 }
 
 function decisionRows(decisions) {
@@ -134,7 +215,7 @@ function decisionRows(decisions) {
       repo: d.repo,
       cells: [
         `<td>${escapeHtml(d.repo)}</td>`,
-        `<td class="mono">${d.issue}</td>`,
+        `<td class="mono">${issueToggleCell("decisions", d.issue, d.repo)}</td>`,
         `<td class="mono">${d.pr}</td>`,
         `<td>${d.phase}</td>`,
         `<td>${escapeHtml(d.role)}</td>`,
@@ -167,12 +248,12 @@ function flowRows(flows) {
     issue: f.issue,
     repo: f.repo,
     cells: [
-      `<td class="mono">${f.issue}</td>`,
+      `<td>${escapeHtml(f.repo)}</td>`,
+      `<td class="mono">${issueToggleCell("flows", f.issue, f.repo)}</td>`,
       `<td>${escapeHtml(f.stage)}${f.stage_derived ? "" : ' <span class="text-secondary">(raw)</span>'}</td>`,
       `<td>${planCellLabel(f.plan)}</td>`,
       `<td>${f.roles.map((r) => `<span class="badge status-neutral mono">${escapeHtml(r.role)}:${escapeHtml(r.loop_state)}</span>`).join(" ")}</td>`,
       `<td class="mono">${f.prs.join(",") || "-"}</td>`,
-      `<td>${escapeHtml(f.repo)}</td>`,
     ],
   }));
 }
@@ -182,15 +263,15 @@ function sessionRows(sessions) {
     issue: s.issue,
     repo: s.repo,
     cells: [
+      `<td>${escapeHtml(s.repo)}</td>`,
       `<td>${escapeHtml(s.role)}</td>`,
-      `<td class="mono">${s.issue}</td>`,
+      `<td class="mono">${issueToggleCell("sessions", s.issue, s.repo)}</td>`,
       `<td class="mono">${s.elapsed_min.toFixed(1)}m</td>`,
       `<td class="mono">${s.pid}</td>`,
       `<td><span class="badge ${s.alive ? "status-success" : "status-neutral"}">${s.alive ? "alive" : "dead"}</span></td>`,
       `<td>${s.last_activity
         ? `<span class="mono">${escapeHtml(s.last_activity.ts)}</span> ${escapeHtml(s.last_activity.kind)}: ${escapeHtml(s.last_activity.detail)}`
         : '<span class="text-secondary">—</span>'}</td>`,
-      `<td>${escapeHtml(s.repo)}</td>`,
     ],
   }));
 }
@@ -200,14 +281,14 @@ function renderAccounting(ledger, unattributed) {
     issue: le.issue,
     repo: le.repo,
     cells: [
-      `<td class="mono">${le.issue}</td>`,
+      `<td>${escapeHtml(le.repo)}</td>`,
+      `<td class="mono">${issueToggleCell("ledger", le.issue, le.repo)}</td>`,
       `<td class="mono">${le.sessions}</td>`,
       `<td class="mono">$${le.cost_usd_total.toFixed(2)}</td>`,
       `<td>${Object.entries(le.outcomes).map(([k, v]) => `${escapeHtml(k)}:${v}`).join(" ")}</td>`,
-      `<td>${escapeHtml(le.repo)}</td>`,
     ],
   }));
-  const table = renderTable(["Issue", "Sessions", "Cost", "Outcomes", "Repo"], rows, "(none)");
+  const table = renderTable(["Repo", "Issue", "Sessions", "Cost", "Outcomes"], rows, "(none)");
   const unattributedLines = unattributed.map((u) =>
     `<div class="unattributed">(unattributed: ${u.sessions} sessions, $${u.cost_usd_total.toFixed(2)} — ${escapeHtml(u.repo)})</div>`
   ).join("");
@@ -380,11 +461,11 @@ function renderData(data) {
     </section>
     <section class="region">
       <h2>Flows</h2>
-      ${renderTable(["Issue", "Stage", "Plan", "Roles", "PRs", "Repo"], flowRows(data.flows), "(none)")}
+      ${renderTable(["Repo", "Issue", "Stage", "Plan", "Roles", "PRs"], flowRows(data.flows), "(none)")}
     </section>
     <section class="region">
       <h2>Sessions</h2>
-      ${renderTable(["Role", "Issue", "Elapsed", "PID", "Alive", "Last activity", "Repo"], sessionRows(data.sessions), "(none)")}
+      ${renderTable(["Repo", "Role", "Issue", "Elapsed", "PID", "Alive", "Last activity"], sessionRows(data.sessions), "(none)")}
     </section>
     ${renderErrors(data.errors)}
     <section class="region">
@@ -425,5 +506,5 @@ if (typeof window !== "undefined") {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ageBucket, ageBucketStatus, selectSummary, isPageEmpty, buildPlanSteps };
+  module.exports = { ageBucket, ageBucketStatus, selectSummary, isPageEmpty, buildPlanSteps, filterByRepo };
 }

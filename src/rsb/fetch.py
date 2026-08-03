@@ -4,12 +4,14 @@ The subprocess boundary (`run_flows_json`) is injectable so tests never
 shell out to a real `spawn.py` (proposal §7).
 """
 
+import concurrent.futures
+import functools
 import json
 import subprocess
 
 from rsb.model import PayloadError, merge_repos, normalize_payload
 
-DEFAULT_TIMEOUT_SECONDS = 15
+DEFAULT_TIMEOUT_SECONDS = 60
 
 
 def run_flows_json(repo_config, timeout=DEFAULT_TIMEOUT_SECONDS):
@@ -64,7 +66,25 @@ def fetch_and_normalize_one(repo_config, run_json_fn=run_flows_json):
     return (repo_name, normalized, None)
 
 
-def fetch_board(repo_configs, run_json_fn=run_flows_json):
-    """Fetch + normalize + merge all repos into one BoardModel."""
-    per_repo_results = [fetch_and_normalize_one(rc, run_json_fn) for rc in repo_configs]
+def fetch_board(repo_configs, run_json_fn=None, timeout=DEFAULT_TIMEOUT_SECONDS):
+    """Fetch + normalize + merge all repos into one BoardModel.
+
+    Repos are fetched concurrently (one subprocess call per repo), capped at
+    8 worker threads regardless of repo count (rate-limit/resource review
+    feedback). `.map()` is used rather than submit()+as_completed() so the
+    result order matches `repo_configs` input order — merge_repos() and
+    several BoardModel fields rely on that ordering rather than completion
+    order.
+    """
+    if run_json_fn is None:
+        run_json_fn = functools.partial(run_flows_json, timeout=timeout)
+
+    max_workers = min(len(repo_configs), 8) or 1
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        per_repo_results = list(
+            executor.map(
+                functools.partial(fetch_and_normalize_one, run_json_fn=run_json_fn),
+                repo_configs,
+            )
+        )
     return merge_repos(per_repo_results)
