@@ -163,7 +163,7 @@ Named here, applied per-region in `docs/specs/screen-spec.md`.
 | `RefreshButton` | `color-action-primary-*` |
 | `RepoFilter` | native `<select>`, `font-size-body` (issue #29 requirement 2 — client-side filter over an already-fetched payload, no refetch) |
 | `SummaryChip` | `status-*` pair matching its metric, `font-size-300` |
-| `DataTable` | `space-table-cell-padding-*`, `font-size-body`, `color-border-default`, `color-surface-raised` |
+| `DataTable` | `space-table-cell-padding-*`, `font-size-body`, `color-border-default`, `color-surface-raised`. Issue/PR cells: leading icon-only `row-toggle` disclosure button (▸/▾, no color token — inherits text color) + trailing `#<n>` link (`.number-link`, `color-action-primary-background`, issue #36) |
 | `AgeBucketBadge` | `status-neutral/warning/error` per §2.4 |
 | `RoleChip` | `status-neutral`, `font-family-mono` |
 | `AliveBadge` | `status-success/neutral` per §2.4 |

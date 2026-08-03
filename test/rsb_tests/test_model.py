@@ -308,3 +308,29 @@ def test_dashboard_js_filter_by_repo_narrows_every_section():
     # Falsy repo (e.g. the "All repos" option's value "") returns the data
     # unchanged.
     assert result["unfiltered"] == data
+
+
+def test_dashboard_js_number_link_html_renders_blue_link_when_owner_name_present():
+    # issue #36 requirement 1/2 — the number itself is the `<a>` text,
+    # `class="number-link"` (dashboard.css maps this to
+    # `color-action-primary-background`, blue at rest).
+    result = _run_dashboard_js(
+        """
+        console.log(JSON.stringify(dashboard.numberLinkHtml("a/b", "issues", 42)));
+        """
+    )
+    assert result == (
+        '<a class="number-link" href="https://github.com/a/b/issues/42" '
+        'target="_blank" rel="noopener noreferrer">#42</a>'
+    )
+
+
+def test_dashboard_js_number_link_html_falls_back_to_plain_text_without_owner_name():
+    # issue #36 requirement 5 (AC4) — no owner/name on record means plain
+    # `#<n>` text, never a broken link.
+    result = _run_dashboard_js(
+        """
+        console.log(JSON.stringify(dashboard.numberLinkHtml(null, "issues", 42)));
+        """
+    )
+    assert result == "#42"

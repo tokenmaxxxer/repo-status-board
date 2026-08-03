@@ -51,10 +51,16 @@ background, `font-family-base` for all text unless noted.
   renders raw hours plus an `AgeBucketBadge` using the design-system.md
   §2.4 bucket rule: `fresh` <4h → `status-neutral`, `aging` 4–24h →
   `status-warning`, `stale` ≥24h → `status-error`.
-- Issue-cell button click opens `DetailPanel` (§1.6) — the Issue cell
-  renders a `<button class="row-toggle">` (issue #23
-  execution-observation finding; issue #29 requirement 5), not a
-  clickable `<tr>`.
+- Issue cell renders a leading icon-only `<button class="row-toggle">`
+  (▸/▾ glyph, `aria-expanded`, `aria-controls="detail-panel-slot"`,
+  `aria-label="Toggle details for issue {n}"` — issue #23
+  execution-observation finding; issue #29 requirement 5; relocated to
+  this leading-button-only form by issue #36) followed by the issue
+  number as a `#<n>` link (`color-action-primary-*`, plain `#<n>` text
+  when the repo has no owner/name on record). Clicking the button opens
+  `DetailPanel` (§1.6); clicking the link navigates to GitHub. Not a
+  clickable `<tr>`. PR column uses the same `#<n>` link rule, with no
+  disclosure button (PR cells have no detail panel to open).
 - Region-empty state: `EmptyStateMessage` "Nothing awaiting decision"
   (per §2.3 below).
 - All four data tables (Decision queue, Flows, Sessions, Accounting
@@ -71,12 +77,14 @@ background, `font-family-base` for all text unless noted.
 - Roles column: one `RoleChip` per `role:loop_state` pair —
   `status-neutral` background, `font-family-mono` for the state text.
 - PRs column: `font-family-mono` for issue/PR numbers.
-- Issue-cell button click opens `DetailPanel` (same `row-toggle` pattern
-  as §1.3). Region-empty: `EmptyStateMessage` "(none)".
+- Issue cell: same leading `row-toggle` button + trailing `#<n>` link
+  pattern as §1.3. PRs column: same `#<n>` link rule as Issue. Region-empty:
+  `EmptyStateMessage` "(none)".
 
 ### 1.5 Sessions table — `DataTable` + `AliveBadge`
 
 - Same `DataTable` tokens. Elapsed/PID columns: `font-family-mono`.
+- Issue cell: same §1.3 pattern.
 - Alive column: `AliveBadge`, `status-success` (alive) /
   `status-neutral` (dead) per design-system.md §2.4.
 - Last activity: `font-family-mono` timestamp + kind:detail, em-dash
@@ -94,6 +102,7 @@ background, `font-family-base` for all text unless noted.
 
 ### 1.7 Accounting strip — `AccountingRow`
 
+- Issue cell: same §1.3 pattern.
 - Compact table/summary line, `font-family-mono` for cost and counts,
   `color-text-secondary` for the outcome chips and "unattributed: N
   sessions, $X — repo" line.
