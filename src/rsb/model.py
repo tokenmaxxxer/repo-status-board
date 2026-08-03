@@ -107,6 +107,7 @@ class BoardModel:
     """Merged model across all successfully-fetched repos."""
 
     generated_at_by_repo: dict = field(default_factory=dict)
+    owner_name_by_repo: dict = field(default_factory=dict)
     decisions: list = field(default_factory=list)
     flows: list = field(default_factory=list)
     sessions: list = field(default_factory=list)
@@ -263,9 +264,11 @@ def normalize_payload(repo_name, payload):
         raise PayloadError(f"malformed payload: missing/invalid field {e}") from e
 
     generated_at = payload.get("generated_at")
+    owner_name = payload.get("repo")
 
     return {
         "generated_at": generated_at,
+        "owner_name": owner_name,
         "decisions": decisions,
         "flows": flows,
         "sessions": sessions,
@@ -288,6 +291,7 @@ def merge_repos(per_repo_results):
             model.errors.append(RepoError(repo=repo_name, message=error_message))
             continue
         model.generated_at_by_repo[repo_name] = normalized["generated_at"]
+        model.owner_name_by_repo[repo_name] = normalized["owner_name"]
         model.decisions.extend(normalized["decisions"])
         model.flows.extend(normalized["flows"])
         model.sessions.extend(normalized["sessions"])

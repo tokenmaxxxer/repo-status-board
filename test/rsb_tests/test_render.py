@@ -45,3 +45,10 @@ def test_render_json_model_is_serializable_and_matches_data():
     assert parsed["decisions"][0]["issue"] == 172
     assert parsed["flows"][0]["stage_derived"] is True
     assert parsed["errors"] == []
+
+
+def test_render_json_model_includes_owner_name_by_repo():
+    model = _model(WORKED_EXAMPLE)
+    payload = render_json_model(model, "2026-07-31T08:00:00Z")
+    assert payload["owner_name_by_repo"] == model.owner_name_by_repo
+    assert payload["owner_name_by_repo"] == {"on-the-record": "tokenmaxxxer/on-the-record"}

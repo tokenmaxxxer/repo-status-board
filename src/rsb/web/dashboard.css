@@ -170,6 +170,23 @@ table.data-table th, table.data-table td {
   outline-offset: 2px;
 }
 
+/* External GitHub deep-link (issue #34) — separate sibling control next to
+   `.row-toggle` / PR number text, never overlapping it (scout-brief
+   must-be). Reads as secondary to the primary row action. */
+.external-link {
+  margin-left: var(--space-1);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+.external-link:hover,
+.external-link:focus {
+  color: var(--color-action-primary-background);
+}
+.external-link:focus-visible {
+  outline: 2px solid var(--color-blue-500);
+  outline-offset: 2px;
+}
+
 /* Narrow-screen (< breakpoint-lg) inline equivalent of .detail-panel —
    same visual treatment, injected as a <tr><td> below the toggled row. */
 .detail-row td {

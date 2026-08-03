@@ -201,13 +201,44 @@ function isRowExpanded(sourceTable, issue, repo) {
   );
 }
 
-function issueToggleCell(sourceTable, issue, repo) {
-  const expanded = isRowExpanded(sourceTable, issue, repo);
-  const controlsId = rowToggleId(sourceTable, repo, issue);
-  return `<button type="button" class="row-toggle" aria-expanded="${expanded}" aria-controls="${controlsId}" data-issue="${issue}" data-repo="${escapeHtml(repo)}" data-table="${sourceTable}">${issue}</button>`;
+// GitHub deep-link helpers (issue #34) — pure/DOM-free so they get
+// `node -e` coverage via the module.exports guard below, same convention
+// as buildPlanSteps/filterByRepo. `ownerNameByRepo` (owner/name per repo
+// short name, keyed the same way as `generated_at_by_repo`) is looked up
+// per-record by callers; when a repo has no owner/name on record,
+// `buildGithubUrl` returns `null` and `externalLinkHtml` renders nothing
+// (AC5 — no broken link, cell just omits the affordance).
+function buildGithubUrl(ownerName, kind, number) {
+  if (!ownerName || typeof ownerName !== "string") return null;
+  return `https://github.com/${ownerName}/${kind}/${number}`;
 }
 
-function decisionRows(decisions) {
+// Separate, sibling control next to `row-toggle` (never overlapping/
+// nesting it) per scout-brief's must-be — icon-only link with an explicit
+// `aria-label` and a decorative `aria-hidden="true"` glyph.
+function externalLinkHtml(ownerName, kind, number, label) {
+  const url = buildGithubUrl(ownerName, kind, number);
+  if (url === null) return "";
+  return `<a class="external-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(label)}"><span aria-hidden="true">↗</span></a>`;
+}
+
+function issueToggleCell(sourceTable, issue, repo, ownerName) {
+  const expanded = isRowExpanded(sourceTable, issue, repo);
+  const controlsId = rowToggleId(sourceTable, repo, issue);
+  return `<button type="button" class="row-toggle" aria-expanded="${expanded}" aria-controls="${controlsId}" data-issue="${issue}" data-repo="${escapeHtml(repo)}" data-table="${sourceTable}">${issue}</button>${externalLinkHtml(ownerName, "issues", issue, `Open issue ${issue} on GitHub`)}`;
+}
+
+// PR-cell helper (issue #34 AC3) — shared by decisionRows' single-PR cell
+// and flowRows' multi-PR cell. Empty/falsy `prNumbers` keeps the existing
+// "-" fallback; each PR number gets its own external-link affordance.
+function prCellHtml(ownerName, prNumbers) {
+  if (!prNumbers || prNumbers.length === 0) return "-";
+  return prNumbers
+    .map((prNumber) => `<span class="mono">${prNumber}${externalLinkHtml(ownerName, "pull", prNumber, `Open PR ${prNumber} on GitHub`)}</span>`)
+    .join(", ");
+}
+
+function decisionRows(decisions, ownerNameByRepo) {
   return decisions.map((d) => {
     const bucket = ageBucket(d.age_hours);
     return {
@@ -215,8 +246,8 @@ function decisionRows(decisions) {
       repo: d.repo,
       cells: [
         `<td>${escapeHtml(d.repo)}</td>`,
-        `<td class="mono">${issueToggleCell("decisions", d.issue, d.repo)}</td>`,
-        `<td class="mono">${d.pr}</td>`,
+        `<td class="mono">${issueToggleCell("decisions", d.issue, d.repo, ownerNameByRepo[d.repo])}</td>`,
+        `<td>${prCellHtml(ownerNameByRepo[d.repo], [d.pr])}</td>`,
         `<td>${d.phase}</td>`,
         `<td>${escapeHtml(d.role)}</td>`,
         `<td>${escapeHtml(d.awaiting)}</td>`,
@@ -243,29 +274,29 @@ function planCellLabel(plan) {
   return `<span class="badge ${status} mono">${done}/${total} done</span>`;
 }
 
-function flowRows(flows) {
+function flowRows(flows, ownerNameByRepo) {
   return flows.map((f) => ({
     issue: f.issue,
     repo: f.repo,
     cells: [
       `<td>${escapeHtml(f.repo)}</td>`,
-      `<td class="mono">${issueToggleCell("flows", f.issue, f.repo)}</td>`,
+      `<td class="mono">${issueToggleCell("flows", f.issue, f.repo, ownerNameByRepo[f.repo])}</td>`,
       `<td>${escapeHtml(f.stage)}${f.stage_derived ? "" : ' <span class="text-secondary">(raw)</span>'}</td>`,
       `<td>${planCellLabel(f.plan)}</td>`,
       `<td>${f.roles.map((r) => `<span class="badge status-neutral mono">${escapeHtml(r.role)}:${escapeHtml(r.loop_state)}</span>`).join(" ")}</td>`,
-      `<td class="mono">${f.prs.join(",") || "-"}</td>`,
+      `<td>${prCellHtml(ownerNameByRepo[f.repo], f.prs)}</td>`,
     ],
   }));
 }
 
-function sessionRows(sessions) {
+function sessionRows(sessions, ownerNameByRepo) {
   return sessions.map((s) => ({
     issue: s.issue,
     repo: s.repo,
     cells: [
       `<td>${escapeHtml(s.repo)}</td>`,
       `<td>${escapeHtml(s.role)}</td>`,
-      `<td class="mono">${issueToggleCell("sessions", s.issue, s.repo)}</td>`,
+      `<td class="mono">${issueToggleCell("sessions", s.issue, s.repo, ownerNameByRepo[s.repo])}</td>`,
       `<td class="mono">${s.elapsed_min.toFixed(1)}m</td>`,
       `<td class="mono">${s.pid}</td>`,
       `<td><span class="badge ${s.alive ? "status-success" : "status-neutral"}">${s.alive ? "alive" : "dead"}</span></td>`,
@@ -276,13 +307,13 @@ function sessionRows(sessions) {
   }));
 }
 
-function renderAccounting(ledger, unattributed) {
+function renderAccounting(ledger, unattributed, ownerNameByRepo) {
   const rows = ledger.map((le) => ({
     issue: le.issue,
     repo: le.repo,
     cells: [
       `<td>${escapeHtml(le.repo)}</td>`,
-      `<td class="mono">${issueToggleCell("ledger", le.issue, le.repo)}</td>`,
+      `<td class="mono">${issueToggleCell("ledger", le.issue, le.repo, ownerNameByRepo[le.repo])}</td>`,
       `<td class="mono">${le.sessions}</td>`,
       `<td class="mono">$${le.cost_usd_total.toFixed(2)}</td>`,
       `<td>${Object.entries(le.outcomes).map(([k, v]) => `${escapeHtml(k)}:${v}`).join(" ")}</td>`,
@@ -443,6 +474,12 @@ function renderData(data) {
   const repoCount = Object.keys(data.generated_at_by_repo).length + data.errors.length;
   HEADER_META.textContent = `as of ${data.generated_at} — ${repoCount} repos, ${data.errors.length} errors`;
 
+  // owner/name per repo short name (issue #34) — falsy-safe extraction
+  // mirrors this file's existing defensive style (e.g. filterByRepo's
+  // handling of missing keys); absent on older payloads simply yields no
+  // external links (AC5), not an error.
+  const ownerNameByRepo = data.owner_name_by_repo || {};
+
   const summary = selectSummary(data);
   SUMMARY_STRIP.innerHTML = Object.values(summary)
     .filter((s) => !(s.hideWhenZero && s.count === 0))
@@ -473,15 +510,15 @@ function renderData(data) {
   MAIN.innerHTML = `
     <section class="region">
       <h2>Decision queue</h2>
-      ${renderTable(["Repo", "Issue", "PR", "Phase", "Role", "Awaiting", "Age"], decisionRows(data.decisions), "Nothing awaiting decision")}
+      ${renderTable(["Repo", "Issue", "PR", "Phase", "Role", "Awaiting", "Age"], decisionRows(data.decisions, ownerNameByRepo), "Nothing awaiting decision")}
     </section>
     <section class="region">
       <h2>Flows</h2>
-      ${renderTable(["Repo", "Issue", "Stage", "Plan", "Roles", "PRs"], flowRows(data.flows), "(none)")}
+      ${renderTable(["Repo", "Issue", "Stage", "Plan", "Roles", "PRs"], flowRows(data.flows, ownerNameByRepo), "(none)")}
     </section>
     <section class="region">
       <h2>Sessions</h2>
-      ${renderTable(["Repo", "Role", "Issue", "Elapsed", "PID", "Alive", "Last activity"], sessionRows(data.sessions), "(none)")}
+      ${renderTable(["Repo", "Role", "Issue", "Elapsed", "PID", "Alive", "Last activity"], sessionRows(data.sessions, ownerNameByRepo), "(none)")}
     </section>
     ${renderErrors(data.errors)}
     <section class="region">
@@ -490,7 +527,7 @@ function renderData(data) {
     </section>
     <section class="region accounting-strip">
       <h2>Accounting</h2>
-      ${renderAccounting(data.ledger, data.unattributed)}
+      ${renderAccounting(data.ledger, data.unattributed, ownerNameByRepo)}
     </section>
   `;
   DETAIL_SLOT.innerHTML = selectedIssue ? renderDetailPanel(data, selectedIssue.issue, selectedIssue.repo) : "";
@@ -528,5 +565,5 @@ if (typeof window !== "undefined") {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ageBucket, ageBucketStatus, selectSummary, isPageEmpty, buildPlanSteps, filterByRepo };
+  module.exports = { ageBucket, ageBucketStatus, selectSummary, isPageEmpty, buildPlanSteps, filterByRepo, buildGithubUrl, externalLinkHtml };
 }

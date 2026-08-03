@@ -184,6 +184,11 @@ PLAN_STEPS_PAYLOAD = {
     "hygiene": {"closure_sweep": [], "unapproved_open_prs": []},
 }
 
+# AC5 (issue #34) — no owner/name available: derived from EMPTY_PAYLOAD via
+# dict copy with the `repo` key removed entirely (payload predates the
+# `repo` field, or the provider omitted it).
+MISSING_OWNER_NAME_PAYLOAD = {k: v for k, v in EMPTY_PAYLOAD.items() if k != "repo"}
+
 WITH_LAST_ACTIVITY_PAYLOAD = {
     "schema_version": 1,
     "generated_at": "2026-07-31T08:00:00Z",
