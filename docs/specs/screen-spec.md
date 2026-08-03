@@ -46,7 +46,13 @@ background, `font-family-base` for all text unless noted.
 
 - `DataTable`: `color-surface-raised` background, `color-border-default`
   border, `space-table-cell-padding-y/x` per cell, `font-size-body`
-  text.
+  text, `min-width: 640px` (first-attempt value, revisit like the
+  age-bucket thresholds below) so columns never shrink past legibility —
+  narrower viewports scroll the table (`.table-scroll`) instead of
+  compressing it (issue #38 P1-1).
+- Each table carries a visually-hidden `<caption>` naming it ("Decision
+  queue"/"Flows"/"Sessions"/"Accounting ledger") and every `<th>` has
+  `scope="col"` (issue #38 P2-7) — screen-reader-only, no visible change.
 - Columns: Repo, Issue, PR, Phase, Role, Awaiting, Age. Age column
   renders raw hours plus an `AgeBucketBadge` using the design-system.md
   §2.4 bucket rule: `fresh` <4h → `status-neutral`, `aging` 4–24h →
@@ -69,6 +75,10 @@ background, `font-family-base` for all text unless noted.
   so a wide table scrolls horizontally on its own at narrow widths —
   there is no page-level horizontal scroll and no separate mobile card
   layout.
+- The currently-selected row (the one whose `row-toggle` is expanded)
+  gets a `tr.selected-row` highlight (`color-status-info-background`) so
+  it stays visually anchored across re-renders, e.g. after Refresh
+  (issue #38 P2-7).
 
 ### 1.4 Flows table — `DataTable` + `RoleChip`
 
@@ -94,11 +104,24 @@ background, `font-family-base` for all text unless noted.
 ### 1.6 Detail panel — `DetailPanel`
 
 - Layout choice resolved: side panel at/above `breakpoint-lg` (1200px),
-  expandable row below `breakpoint-lg` (design-system.md §5).
+  expandable row below `breakpoint-lg` (design-system.md §5) — now
+  actually implemented (issue #38 P1-3): below `breakpoint-lg`, the same
+  panel content is inserted as a `<tr><td colspan="N">` immediately
+  after the selected row instead of into the side-panel slot, which
+  stays empty at that width.
 - Internal spacing: `space-4` between the four sub-sections (decision
   row, flow row, session rows, ledger entry).
+- Landmark/heading: the panel is `role="region"
+  aria-labelledby="detail-panel-heading"` with an `<h2
+  id="detail-panel-heading" tabindex="-1">Issue {n} — {repo}</h2>`
+  heading (issue #38 P1-4/P2-7) — reachable by landmark/heading
+  navigation, not just visually. Opening a row moves focus onto this
+  heading; closing it moves focus back to the row's own `row-toggle`
+  button.
 - Empty (stale selection): inline message "This issue no longer has
-  board activity", `color-text-secondary`.
+  board activity", `color-text-secondary` — carries the same
+  `id="detail-panel-heading" tabindex="-1"` so a focus target always
+  exists on open, even for this branch.
 
 ### 1.7 Accounting strip — `AccountingRow`
 
@@ -132,6 +155,12 @@ background, `font-family-base` for all text unless noted.
   not one full-page spinner.
 - Header copy: "Loading…" replaces "as of {timestamp}"
   (`color-text-secondary`).
+- `#main-content` carries `aria-busy="true"` from page load until the
+  first render completes (`renderData`/`renderFullError`), and
+  `aria-busy="false"` afterward (issue #38 P1-4). `#header-meta` is
+  statically `aria-live="polite"` (present from page load, not added
+  dynamically) so the "Loading…" → "as of {timestamp}" transition is
+  announced to screen readers.
 
 ### 2.2 Page-level Empty
 
@@ -151,27 +180,34 @@ background, `font-family-base` for all text unless noted.
 ### 2.4 Page-level Error (total failure) — `ErrorState`
 
 - Full-page state replacing summary strip and all table regions:
-  heading "Couldn't load board status" (`font-size-heading`), joined
-  repo error messages (`color-text-secondary`), primary Retry button
-  (`color-action-primary-*`). Icon/heading area uses `status-error`
-  accent. No stale content shown underneath.
+  heading "Couldn't load board status" — now an `<h2>`, not `<h1>`, so
+  the page's own `<h1 id="page-title">` stays the only `<h1>` in the
+  document (issue #38 P2-6, `font-size-heading`) — plus a generic
+  summary line "The board data couldn't be loaded.", a collapsed
+  `<details><summary>Details</summary>...` holding the raw joined repo
+  error messages (`color-text-secondary`, not shown by default — issue
+  #38 P2-6, internal paths/provider errors no longer expose themselves
+  at a glance), and a primary Retry button (`color-action-primary-*`).
+  The whole state is `role="alert"` and `#main-content` gets
+  `aria-busy="false"` once it renders. Icon/heading area uses
+  `status-error` accent. No stale content shown underneath.
 
 ### 2.5 Partial failure (banner) — `PartialFailureBanner`
 
 - `status-warning` background/foreground/border, placed directly under
-  the header, `space-4` gap above the summary strip.
+  the header, `space-4` gap above the summary strip. `aria-live="polite"`
+  is static on `#partial-banner` from page load (issue #38 P1-4), so this
+  state's appearance is announced to screen readers.
 - Copy (as actually rendered by `dashboard.js`'s `renderData()`
   `PARTIAL_BANNER.innerHTML` block): a single always-visible line, `"{M}
-  of {N} repos failed to load — {repo}: {message}, {repo}: {message},
-  …"` — every failed repo's `repo: message` pair joined with `, ` after
-  the em dash — followed by the `Retry` link/button. (The approved
-  proposal for issue #29 additionally specifies collapsing the per-repo
-  detail behind `<details><summary>Details</summary>...</details>`,
-  leaving only the `"{M} of {N} repos failed to load"` line always
-  visible; that collapse is not yet wired into `dashboard.js` as of this
-  writing — see `docs/issue-29/reports/implementation.md` "Open
-  findings". This line documents the copy as it actually renders today,
-  not the not-yet-built collapsed form.)
+  of {N} repos failed to load — "` followed by a collapsed
+  `<details><summary>Details</summary><p>{repo}: {message}, {repo}:
+  {message}, …</p></details>` (every failed repo's `repo: message` pair
+  joined with `, `), then the `Retry` link/button. The issue-29-approved
+  collapsed-detail structure named here is now actually wired into
+  `dashboard.js` (issue #38 P2-6 finishes the gap
+  `docs/issue-29/reports/implementation.md` "Open findings" left open —
+  the per-repo detail is no longer always-visible).
 - Retry action styled as a text/link button in
   `color-action-primary-foreground` on the warning background (falls
   back to `status-warning`'s foreground token if the action-primary
@@ -183,6 +219,12 @@ background, `font-family-base` for all text unless noted.
 
 - Loading: not applicable (no independent fetch).
 - Empty: see §1.6.
+- Open/close: focus moves to the panel's `<h2 id="detail-panel-heading"
+  tabindex="-1">` heading on open, and back to the triggering row's
+  `row-toggle` button on close (issue #38 P1-4, see §1.6) — a
+  keyboard/screen-reader user gets a positional signal either way,
+  instead of the panel appearing/disappearing silently elsewhere on the
+  page.
 
 ## 3. Traceability table
 

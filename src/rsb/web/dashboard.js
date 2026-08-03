@@ -11,11 +11,8 @@ const REPO_FILTER = document.getElementById("repo-filter");
 // Detail-panel layout switch — matches dashboard.css's
 // `@media (min-width: 1200px)` rule (design-system.md's `breakpoint-lg`).
 // At/above this width: DETAIL_SLOT renders as a sticky side panel. Below
-// it: DETAIL_SLOT renders the same content as a block below MAIN instead
-// — there is no separate per-table inline expansion path (no
-// insertDetailRow() exists; the narrow-layout behavior screen-spec.md
-// §1.6 documents remains unimplemented, issue-36 survey §2 — out of
-// scope for this change).
+// it, applySelectionLayout() inserts the same content as a `<tr>`
+// immediately after the selected row instead (screen-spec.md §1.6).
 const WIDE_LAYOUT_QUERY = "(min-width: 1200px)";
 
 // Fetched board payload, promoted to module scope (was local to load())
@@ -138,6 +135,7 @@ function repoList(data) {
 /* ---- render fragments ---- */
 
 function renderSkeleton() {
+  MAIN.setAttribute("aria-busy", "true");
   HEADER_META.textContent = "Loading…";
   SUMMARY_STRIP.innerHTML = ["status-neutral", "status-neutral", "status-neutral", "status-neutral"]
     .map(() => `<span class="chip skeleton" style="width:8em;"></span>`)
@@ -161,30 +159,33 @@ function renderFullError(message) {
   PARTIAL_BANNER.innerHTML = "";
   DETAIL_SLOT.innerHTML = "";
   MAIN.innerHTML = `
-    <div class="error-state">
-      <h1>Couldn't load board status</h1>
-      <p>${escapeHtml(message)}</p>
+    <div class="error-state" role="alert">
+      <h2>Couldn't load board status</h2>
+      <p>The board data couldn't be loaded.</p>
+      ${collapsibleDetailHtml("Details", message)}
       <button id="retry-button" class="refresh-button">Retry</button>
     </div>
   `;
   document.getElementById("retry-button").addEventListener("click", load);
+  MAIN.setAttribute("aria-busy", "false");
 }
 
-function renderTable(headers, rows, emptyMessage) {
+function renderTable(headers, rows, emptyMessage, caption) {
   if (rows.length === 0) {
     return `<div class="region-empty">${escapeHtml(emptyMessage)}</div>`;
   }
-  const head = `<tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr>`;
+  const head = `<tr>${headers.map((h) => `<th scope="col">${escapeHtml(h)}</th>`).join("")}</tr>`;
   // `data-issue`/`data-repo` used to live on this <tr> for the old
   // whole-row click handler (issue #36 removed that path in favor of
   // `.row-toggle`'s own `data-*` attributes) — not re-added here, the
   // row-toggle button inside `r.cells` is the only thing click-bound now.
   const body = rows.map((r) => `<tr>${r.cells.join("")}</tr>`).join("");
+  const captionHtml = `<caption class="visually-hidden">${escapeHtml(caption)}</caption>`;
   // `.table-scroll` (dashboard.css) gives each table its own horizontal
   // scroll container independent of the page — one shared change point
   // covers all four dashboard tables (decisions/flows/sessions/ledger),
   // since they all route through this function.
-  return `<div class="table-scroll"><table class="data-table"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+  return `<div class="table-scroll"><table class="data-table">${captionHtml}<thead>${head}</thead><tbody>${body}</tbody></table></div>`;
 }
 
 // Issue-cell disclosure trigger (issue #23 execution-observation's
@@ -332,10 +333,10 @@ function renderAccounting(ledger, unattributed, ownerNameByRepo) {
       `<td class="mono">${issueToggleCell("ledger", le.issue, le.repo, ownerNameByRepo[le.repo])}</td>`,
       `<td class="mono">${le.sessions}</td>`,
       `<td class="mono">$${le.cost_usd_total.toFixed(2)}</td>`,
-      `<td>${Object.entries(le.outcomes).map(([k, v]) => `${escapeHtml(k)}:${v}`).join(" ")}</td>`,
+      `<td>${Object.entries(le.outcomes).map(([k, v]) => `<span class="badge status-neutral mono">${escapeHtml(k)}:${escapeHtml(v)}</span>`).join(" ")}</td>`,
     ],
   }));
-  const table = renderTable(["Repo", "Issue", "Sessions", "Cost", "Outcomes"], rows, "(none)");
+  const table = renderTable(["Repo", "Issue", "Sessions", "Cost", "Outcomes"], rows, "(none)", "Accounting ledger");
   const unattributedLines = unattributed.map((u) =>
     `<div class="unattributed">(unattributed: ${u.sessions} sessions, $${u.cost_usd_total.toFixed(2)} — ${escapeHtml(u.repo)})</div>`
   ).join("");
@@ -440,12 +441,12 @@ function renderDetailPanel(data, issue, repo) {
   if (issue == null) return "";
   const detail = findDetail(data, issue, repo);
   if (!detail.decision && !detail.flow && detail.sessions.length === 0 && !detail.ledger) {
-    return `<div class="detail-panel text-secondary">This issue no longer has board activity</div>`;
+    return `<div class="detail-panel text-secondary" id="detail-panel-heading" tabindex="-1">This issue no longer has board activity</div>`;
   }
   const planData = buildPlanSteps(detail.flow, data.decisions, issue, repo);
   return `
-    <div class="detail-panel">
-      <div><strong>Issue ${issue}</strong> — ${escapeHtml(repo)}</div>
+    <div class="detail-panel" role="region" aria-labelledby="detail-panel-heading">
+      <h2 id="detail-panel-heading" tabindex="-1">Issue ${issue} — ${escapeHtml(repo)}</h2>
       ${detail.decision ? `<div>Decision: PR ${detail.decision.pr}, awaiting ${escapeHtml(detail.decision.awaiting)}</div>` : ""}
       ${detail.flow ? `<div>Stage: ${escapeHtml(detail.flow.stage)}</div>` : ""}
       ${renderPlanSection(planData)}
@@ -453,6 +454,75 @@ function renderDetailPanel(data, issue, repo) {
       ${detail.ledger ? `<div>Cost: $${detail.ledger.cost_usd_total.toFixed(2)} across ${detail.ledger.sessions} sessions</div>` : ""}
     </div>
   `;
+}
+
+// Narrow-screen (< breakpoint-lg) inline equivalent of the detail side
+// panel — pure/DOM-free so it gets `node -e` coverage via the
+// module.exports guard below. `contentHtml` is whatever
+// `renderDetailPanel(...)` already produced; `colspan` spans every column
+// of the row it's inserted after (P1-3).
+function detailRowHtml(colspan, contentHtml) {
+  return `<tr class="detail-row"><td colspan="${colspan}">${contentHtml}</td></tr>`;
+}
+
+// Summary-line + collapsed-`<details>` error-detail structure (P2-6) —
+// pure/DOM-free so it gets `node -e` coverage via the module.exports guard
+// below. Both `summaryLabel` and `detailText` are escaped: `detailText` in
+// particular can be a raw provider/backend error string that may contain
+// internal paths, so it stays behind the collapsed `<details>` rather than
+// always-visible text.
+function collapsibleDetailHtml(summaryLabel, detailText) {
+  return `<details><summary>${escapeHtml(summaryLabel)}</summary><p>${escapeHtml(detailText)}</p></details>`;
+}
+
+// Selects where the detail panel's markup goes (P1-3) and marks the
+// selected row for visual highlighting (P2-7). Wide layout (or the toggled
+// row can't be found, e.g. it scrolled out of the current filtered view):
+// renders into DETAIL_SLOT as before. Narrow layout: DETAIL_SLOT stays
+// empty and the same renderDetailPanel(...) markup is inserted as a
+// sibling `<tr>` immediately after the selected row, so there is exactly
+// one render path/content source for both layouts (Rationale).
+function applySelectionLayout(data) {
+  MAIN.querySelectorAll(".selected-row").forEach((row) => row.classList.remove("selected-row"));
+
+  if (!selectedIssue) {
+    DETAIL_SLOT.innerHTML = "";
+    return;
+  }
+
+  let selectedRow = null;
+  let matchCount = 0;
+  MAIN.querySelectorAll(".row-toggle").forEach((button) => {
+    if (
+      button.dataset.table === selectedIssue.sourceTable
+      && Number(button.dataset.issue) === selectedIssue.issue
+      && button.dataset.repo === selectedIssue.repo
+    ) {
+      matchCount += 1;
+      selectedRow = button.closest("tr");
+    }
+  });
+  // `(sourceTable, issue, repo)` isn't always a unique row key — the
+  // Sessions table can hold more than one row per (issue, repo) (distinct
+  // roles/pids), so more than one button can match here. Picking either
+  // one to highlight/insert-into would be a guess that can land on a row
+  // the user didn't click; treat an ambiguous match the same as "row not
+  // found" below (safe DETAIL_SLOT fallback, no highlight) rather than
+  // guess wrong.
+  if (matchCount !== 1) {
+    selectedRow = null;
+  }
+  if (selectedRow) {
+    selectedRow.classList.add("selected-row");
+  }
+
+  const contentHtml = renderDetailPanel(data, selectedIssue.issue, selectedIssue.repo);
+  if (!selectedRow || window.matchMedia(WIDE_LAYOUT_QUERY).matches) {
+    DETAIL_SLOT.innerHTML = contentHtml;
+  } else {
+    DETAIL_SLOT.innerHTML = "";
+    selectedRow.insertAdjacentHTML("afterend", detailRowHtml(selectedRow.children.length, contentHtml));
+  }
 }
 
 // Repopulates the repo-filter `<select>`'s <option>s from the current
@@ -482,10 +552,22 @@ function attachRowToggleHandlers(data) {
       const issue = Number(button.dataset.issue);
       const repo = button.dataset.repo;
       const sourceTable = button.dataset.table;
-      selectedIssue = isRowExpanded(sourceTable, issue, repo)
-        ? null
-        : { issue, repo, sourceTable };
+      const wasExpanded = isRowExpanded(sourceTable, issue, repo);
+      selectedIssue = wasExpanded ? null : { issue, repo, sourceTable };
       renderData(data);
+      // P1-4: move focus to where the state actually changed instead of
+      // leaving it on a (possibly re-created) button with no visible
+      // context — closing returns focus to the row's own toggle button,
+      // opening moves it onto the newly-rendered detail panel's heading.
+      if (wasExpanded) {
+        const reopenedButton = Array.from(MAIN.querySelectorAll(".row-toggle")).find(
+          (b) => b.dataset.table === sourceTable && Number(b.dataset.issue) === issue && b.dataset.repo === repo
+        );
+        if (reopenedButton) reopenedButton.focus();
+      } else {
+        const heading = document.getElementById("detail-panel-heading");
+        if (heading) heading.focus();
+      }
     });
   });
 }
@@ -515,10 +597,10 @@ function renderData(data) {
   const failedRepos = data.errors;
   if (failedRepos.length > 0 && Object.keys(data.generated_at_by_repo).length > 0) {
     const total = failedRepos.length + Object.keys(data.generated_at_by_repo).length;
-    const detail = failedRepos.map((e) => `${escapeHtml(e.repo)}: ${escapeHtml(e.message)}`).join(", ");
+    const detail = failedRepos.map((e) => `${e.repo}: ${e.message}`).join(", ");
     PARTIAL_BANNER.innerHTML = `
       <div class="partial-banner">
-        ${failedRepos.length} of ${total} repos failed to load — ${detail}
+        ${failedRepos.length} of ${total} repos failed to load — ${collapsibleDetailHtml("Details", detail)}
         <button class="link" id="partial-retry">Retry</button>
       </div>
     `;
@@ -530,21 +612,22 @@ function renderData(data) {
   if (isPageEmpty(data)) {
     MAIN.innerHTML = `<div class="empty-state">No activity to show for the configured repos.</div>`;
     DETAIL_SLOT.innerHTML = "";
+    MAIN.setAttribute("aria-busy", "false");
     return;
   }
 
   MAIN.innerHTML = `
     <section class="region">
       <h2>Decision queue</h2>
-      ${renderTable(["Repo", "Issue", "PR", "Phase", "Role", "Awaiting", "Age"], decisionRows(data.decisions, ownerNameByRepo), "Nothing awaiting decision")}
+      ${renderTable(["Repo", "Issue", "PR", "Phase", "Role", "Awaiting", "Age"], decisionRows(data.decisions, ownerNameByRepo), "Nothing awaiting decision", "Decision queue")}
     </section>
     <section class="region">
       <h2>Flows</h2>
-      ${renderTable(["Repo", "Issue", "Stage", "Plan", "Roles", "PRs"], flowRows(data.flows, ownerNameByRepo), "(none)")}
+      ${renderTable(["Repo", "Issue", "Stage", "Plan", "Roles", "PRs"], flowRows(data.flows, ownerNameByRepo), "(none)", "Flows")}
     </section>
     <section class="region">
       <h2>Sessions</h2>
-      ${renderTable(["Repo", "Role", "Issue", "Elapsed", "PID", "Alive", "Last activity"], sessionRows(data.sessions, ownerNameByRepo), "(none)")}
+      ${renderTable(["Repo", "Role", "Issue", "Elapsed", "PID", "Alive", "Last activity"], sessionRows(data.sessions, ownerNameByRepo), "(none)", "Sessions")}
     </section>
     ${renderErrors(data.errors)}
     <section class="region">
@@ -556,11 +639,13 @@ function renderData(data) {
       ${renderAccounting(data.ledger, data.unattributed, ownerNameByRepo)}
     </section>
   `;
-  DETAIL_SLOT.innerHTML = selectedIssue ? renderDetailPanel(data, selectedIssue.issue, selectedIssue.repo) : "";
+  applySelectionLayout(data);
   attachRowToggleHandlers(data);
+  MAIN.setAttribute("aria-busy", "false");
 }
 
 async function load() {
+  REFRESH_BUTTON.disabled = true;
   renderSkeleton();
   try {
     const res = await fetch("api/board.json");
@@ -574,6 +659,8 @@ async function load() {
     renderData(filterByRepo(boardData, REPO_FILTER.value));
   } catch (err) {
     renderFullError(err.message || String(err));
+  } finally {
+    REFRESH_BUTTON.disabled = false;
   }
 }
 
@@ -591,5 +678,5 @@ if (typeof window !== "undefined") {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ageBucket, ageBucketStatus, selectSummary, isPageEmpty, buildPlanSteps, filterByRepo, buildGithubUrl, numberLinkHtml };
+  module.exports = { ageBucket, ageBucketStatus, selectSummary, isPageEmpty, buildPlanSteps, filterByRepo, buildGithubUrl, numberLinkHtml, detailRowHtml, collapsibleDetailHtml };
 }
