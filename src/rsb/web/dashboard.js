@@ -10,9 +10,12 @@ const REPO_FILTER = document.getElementById("repo-filter");
 
 // Detail-panel layout switch — matches dashboard.css's
 // `@media (min-width: 1200px)` rule (design-system.md's `breakpoint-lg`).
-// At/above this width: detail renders into the fixed DETAIL_SLOT side
-// panel. Below it: detail renders as an expandable `<tr>` inline in the
-// table that triggered the selection (see insertDetailRow()).
+// At/above this width: DETAIL_SLOT renders as a sticky side panel. Below
+// it: DETAIL_SLOT renders the same content as a block below MAIN instead
+// — there is no separate per-table inline expansion path (no
+// insertDetailRow() exists; the narrow-layout behavior screen-spec.md
+// §1.6 documents remains unimplemented, issue-36 survey §2 — out of
+// scope for this change).
 const WIDE_LAYOUT_QUERY = "(min-width: 1200px)";
 
 // Fetched board payload, promoted to module scope (was local to load())
@@ -172,7 +175,11 @@ function renderTable(headers, rows, emptyMessage) {
     return `<div class="region-empty">${escapeHtml(emptyMessage)}</div>`;
   }
   const head = `<tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr>`;
-  const body = rows.map((r) => `<tr data-issue="${r.issue}" data-repo="${escapeHtml(r.repo)}">${r.cells.join("")}</tr>`).join("");
+  // `data-issue`/`data-repo` used to live on this <tr> for the old
+  // whole-row click handler (issue #36 removed that path in favor of
+  // `.row-toggle`'s own `data-*` attributes) — not re-added here, the
+  // row-toggle button inside `r.cells` is the only thing click-bound now.
+  const body = rows.map((r) => `<tr>${r.cells.join("")}</tr>`).join("");
   // `.table-scroll` (dashboard.css) gives each table its own horizontal
   // scroll container independent of the page — one shared change point
   // covers all four dashboard tables (decisions/flows/sessions/ledger),
@@ -181,17 +188,14 @@ function renderTable(headers, rows, emptyMessage) {
 }
 
 // Issue-cell disclosure trigger (issue #23 execution-observation's
-// click-only-row finding; issue #29 requirement 5) — a real <button> per
-// WAI-ARIA APG's disclosure pattern, not a clickable <tr>. `sourceTable`
-// identifies which of the four tables this button belongs to, so the
-// narrow-screen expandable row (insertDetailRow()) only ever expands the
-// one row the user actually clicked, never every table showing the same
-// (issue, repo).
-function rowToggleId(sourceTable, repo, issue) {
-  const safeRepo = String(repo).replace(/[^a-zA-Z0-9_-]/g, "-");
-  return `detail-row-${sourceTable}-${safeRepo}-${issue}`;
-}
-
+// click-only-row finding; issue #29 requirement 5; relocated to a
+// leading icon-only button by issue #36 once the issue number itself
+// became a GitHub link and could no longer double as the button's
+// label) — a real <button> per WAI-ARIA APG's disclosure pattern, not a
+// clickable <tr>. `sourceTable` identifies which of the four tables
+// this button belongs to, so `isRowExpanded` only reports true for the
+// row actually selected in that specific table, never every table
+// showing the same (issue, repo).
 function isRowExpanded(sourceTable, issue, repo) {
   return !!(
     selectedIssue
@@ -201,40 +205,52 @@ function isRowExpanded(sourceTable, issue, repo) {
   );
 }
 
-// GitHub deep-link helpers (issue #34) — pure/DOM-free so they get
-// `node -e` coverage via the module.exports guard below, same convention
-// as buildPlanSteps/filterByRepo. `ownerNameByRepo` (owner/name per repo
-// short name, keyed the same way as `generated_at_by_repo`) is looked up
-// per-record by callers; when a repo has no owner/name on record,
-// `buildGithubUrl` returns `null` and `externalLinkHtml` renders nothing
-// (AC5 — no broken link, cell just omits the affordance).
+// GitHub deep-link helper (issue #34, rewritten by issue #36 to render
+// the issue/PR *number itself* as the link text instead of a trailing ↗
+// icon) — pure/DOM-free so it gets `node -e` coverage via the
+// module.exports guard below, same convention as buildPlanSteps/
+// filterByRepo. `ownerNameByRepo` (owner/name per repo short name, keyed
+// the same way as `generated_at_by_repo`) is looked up per-record by
+// callers; when a repo has no owner/name on record, `buildGithubUrl`
+// returns `null` and `numberLinkHtml` falls back to plain `#<n>` text
+// (AC5 — no broken link).
 function buildGithubUrl(ownerName, kind, number) {
   if (!ownerName || typeof ownerName !== "string") return null;
   return `https://github.com/${ownerName}/${kind}/${number}`;
 }
 
-// Separate, sibling control next to `row-toggle` (never overlapping/
-// nesting it) per scout-brief's must-be — icon-only link with an explicit
-// `aria-label` and a decorative `aria-hidden="true"` glyph.
-function externalLinkHtml(ownerName, kind, number, label) {
+function numberLinkHtml(ownerName, kind, number) {
   const url = buildGithubUrl(ownerName, kind, number);
-  if (url === null) return "";
-  return `<a class="external-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(label)}"><span aria-hidden="true">↗</span></a>`;
+  if (url === null) return escapeHtml(`#${number}`);
+  return `<a class="number-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(`#${number}`)}</a>`;
+}
+
+// Icon-only disclosure button, separate from and leading the `#<n>`
+// link (never overlapping/nesting it) per scout-brief's must-be: a
+// native <button>, leading position, decorative glyph
+// (`aria-hidden="true"`) that flips with `aria-expanded`, accessible
+// name carried by `aria-label` since the glyph no longer can. Fixed
+// `aria-controls="detail-panel-slot"` — the only detail container this
+// codebase actually renders (issue-36 survey §2; no per-table
+// `detail-row-*` element is ever created).
+function rowToggleButtonHtml(sourceTable, issue, repo, expanded) {
+  return `<button type="button" class="row-toggle" aria-expanded="${expanded}" aria-controls="detail-panel-slot" aria-label="Toggle details for issue ${issue}" data-issue="${issue}" data-repo="${escapeHtml(repo)}" data-table="${sourceTable}"><span aria-hidden="true">${expanded ? "▾" : "▸"}</span></button>`;
 }
 
 function issueToggleCell(sourceTable, issue, repo, ownerName) {
   const expanded = isRowExpanded(sourceTable, issue, repo);
-  const controlsId = rowToggleId(sourceTable, repo, issue);
-  return `<button type="button" class="row-toggle" aria-expanded="${expanded}" aria-controls="${controlsId}" data-issue="${issue}" data-repo="${escapeHtml(repo)}" data-table="${sourceTable}">${issue}</button>${externalLinkHtml(ownerName, "issues", issue, `Open issue ${issue} on GitHub`)}`;
+  return `<span class="issue-cell">${rowToggleButtonHtml(sourceTable, issue, repo, expanded)}${numberLinkHtml(ownerName, "issues", issue)}</span>`;
 }
 
-// PR-cell helper (issue #34 AC3) — shared by decisionRows' single-PR cell
-// and flowRows' multi-PR cell. Empty/falsy `prNumbers` keeps the existing
-// "-" fallback; each PR number gets its own external-link affordance.
+// PR-cell helper (issue #34 AC3, rewritten by issue #36) — shared by
+// decisionRows' single-PR cell and flowRows' multi-PR cell. Empty/falsy
+// `prNumbers` keeps the existing "-" fallback; each PR number renders as
+// its own `#<n>` link (or plain text, AC5) — no disclosure control here,
+// so the cell structure itself is otherwise unchanged.
 function prCellHtml(ownerName, prNumbers) {
   if (!prNumbers || prNumbers.length === 0) return "-";
   return prNumbers
-    .map((prNumber) => `<span class="mono">${prNumber}${externalLinkHtml(ownerName, "pull", prNumber, `Open PR ${prNumber} on GitHub`)}</span>`)
+    .map((prNumber) => `<span class="mono">${numberLinkHtml(ownerName, "pull", prNumber)}</span>`)
     .join(", ");
 }
 
@@ -455,10 +471,20 @@ function updateRepoFilterOptions(data) {
   REPO_FILTER.value = repos.includes(previousValue) ? previousValue : "";
 }
 
-function attachRowClickHandlers(data) {
-  MAIN.querySelectorAll("tbody tr[data-issue]").forEach((row) => {
-    row.addEventListener("click", () => {
-      selectedIssue = { issue: Number(row.dataset.issue), repo: row.dataset.repo };
+// Binds only to `.row-toggle` buttons (issue #36) — no longer the whole
+// `tr[data-issue]` row, so an empty-cell click never opens the detail
+// panel (AC3). Reads the button's own `data-issue`/`data-repo`/
+// `data-table`; activating the already-expanded button closes it,
+// activating any other button switches the selection.
+function attachRowToggleHandlers(data) {
+  MAIN.querySelectorAll(".row-toggle").forEach((button) => {
+    button.addEventListener("click", () => {
+      const issue = Number(button.dataset.issue);
+      const repo = button.dataset.repo;
+      const sourceTable = button.dataset.table;
+      selectedIssue = isRowExpanded(sourceTable, issue, repo)
+        ? null
+        : { issue, repo, sourceTable };
       renderData(data);
     });
   });
@@ -531,7 +557,7 @@ function renderData(data) {
     </section>
   `;
   DETAIL_SLOT.innerHTML = selectedIssue ? renderDetailPanel(data, selectedIssue.issue, selectedIssue.repo) : "";
-  attachRowClickHandlers(data);
+  attachRowToggleHandlers(data);
 }
 
 async function load() {
@@ -565,5 +591,5 @@ if (typeof window !== "undefined") {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ageBucket, ageBucketStatus, selectSummary, isPageEmpty, buildPlanSteps, filterByRepo, buildGithubUrl, externalLinkHtml };
+  module.exports = { ageBucket, ageBucketStatus, selectSummary, isPageEmpty, buildPlanSteps, filterByRepo, buildGithubUrl, numberLinkHtml };
 }

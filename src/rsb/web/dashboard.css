@@ -154,8 +154,10 @@ table.data-table th, table.data-table td {
 .table-scroll { overflow-x: auto; }
 
 /* Issue-cell disclosure trigger (issue #23 execution-observation finding;
-   issue #29 requirement 5) — the row itself is no longer the click target,
-   this button is. Strip default button chrome, inherit table typography. */
+   issue #29 requirement 5; icon-only since issue #36 moved it to a
+   leading glyph-only button once the issue number itself became a link)
+   — the row itself is no longer the click target, this button is. Strip
+   default button chrome; holds only the decorative ▸/▾ glyph. */
 .row-toggle {
   background: none;
   border: none;
@@ -170,19 +172,29 @@ table.data-table th, table.data-table td {
   outline-offset: 2px;
 }
 
-/* External GitHub deep-link (issue #34) — separate sibling control next to
-   `.row-toggle` / PR number text, never overlapping it (scout-brief
-   must-be). Reads as secondary to the primary row action. */
-.external-link {
-  margin-left: var(--space-1);
-  color: var(--color-text-secondary);
+/* Issue-cell wrapper (issue #36) — keeps the leading row-toggle button
+   and the trailing #<n> link on one line; without this the pair could
+   wrap onto separate lines in narrower columns (e.g. the Flows table). */
+.issue-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+
+/* Issue/PR number link (issue #36, replaces issue #34's ↗ icon) — the
+   number itself is the link, blue at rest per design-system.md §2.2's
+   `color-action-primary-background` ("links" is an already-documented
+   use of this token). */
+.number-link {
+  color: var(--color-action-primary-background);
   text-decoration: none;
 }
-.external-link:hover,
-.external-link:focus {
-  color: var(--color-action-primary-background);
+.number-link:hover,
+.number-link:focus {
+  text-decoration: underline;
 }
-.external-link:focus-visible {
+.number-link:focus-visible {
   outline: 2px solid var(--color-blue-500);
   outline-offset: 2px;
 }
