@@ -92,6 +92,98 @@ RAW_STAGE_PAYLOAD = {
     "hygiene": {"closure_sweep": [], "unapproved_open_prs": []},
 }
 
+PLAN_NULL_PAYLOAD = {
+    "schema_version": 1,
+    "generated_at": "2026-08-03T00:00:00Z",
+    "repo": "tokenmaxxxer/plan-null",
+    "decision_queue": [],
+    "flows": [
+        {
+            "issue": 400,
+            "stage": "implementing",
+            "stage_derived": True,
+            "roles": [],
+            "prs": [],
+            "plan": None,
+        }
+    ],
+    "sessions": [],
+    "ledger": [],
+    "hygiene": {"closure_sweep": [], "unapproved_open_prs": []},
+}
+
+PLAN_EMPTY_PAYLOAD = {
+    "schema_version": 1,
+    "generated_at": "2026-08-03T00:00:00Z",
+    "repo": "tokenmaxxxer/plan-empty",
+    "decision_queue": [],
+    "flows": [
+        {
+            "issue": 401,
+            "stage": "approved",
+            "stage_derived": True,
+            "roles": [],
+            "prs": [],
+            "plan": [],
+        }
+    ],
+    "sessions": [],
+    "ledger": [],
+    "hygiene": {"closure_sweep": [], "unapproved_open_prs": []},
+}
+
+# Two open PRs against the same (issue, repo, role) — used to cover
+# finding #3b (all matching pending PRs must be shown, not just the
+# first) as well as Python-side multi-step/parallel-role normalization.
+# Steps are listed out of `step`-number order deliberately, to cover
+# finding #3a (display order is `step` ascending, not array order) on the
+# dashboard.js side.
+PLAN_STEPS_PAYLOAD = {
+    "schema_version": 1,
+    "generated_at": "2026-08-03T00:00:00Z",
+    "repo": "tokenmaxxxer/plan-steps",
+    "decision_queue": [
+        {
+            "issue": 402,
+            "pr": 501,
+            "phase": 2,
+            "role": "implementation",
+            "opened_at": "2026-08-01T09:00:00Z",
+            "age_hours": 5.0,
+            "awaiting": "approve-full",
+        },
+        {
+            "issue": 402,
+            "pr": 502,
+            "phase": 2,
+            "role": "implementation",
+            "opened_at": "2026-08-01T10:00:00Z",
+            "age_hours": 4.0,
+            "awaiting": "approve-full",
+        },
+    ],
+    "flows": [
+        {
+            "issue": 402,
+            "stage": "implementing",
+            "stage_derived": True,
+            "roles": [
+                {"role": "implementation", "loop_state": "scope-approved", "verdict": "pending"},
+                {"role": "review", "loop_state": "scope-proposed", "verdict": "pending"},
+            ],
+            "prs": [501, 502],
+            "plan": [
+                {"step": 2, "roles": ["review"], "done": False},
+                {"step": 1, "roles": ["implementation"], "done": True},
+                {"step": 3, "roles": ["implementation", "review"], "done": False},
+            ],
+        }
+    ],
+    "sessions": [],
+    "ledger": [],
+    "hygiene": {"closure_sweep": [], "unapproved_open_prs": []},
+}
+
 WITH_LAST_ACTIVITY_PAYLOAD = {
     "schema_version": 1,
     "generated_at": "2026-07-31T08:00:00Z",

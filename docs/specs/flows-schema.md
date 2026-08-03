@@ -1,9 +1,10 @@
 # `spawn.py flows --json` schema
 
 > Mirrored verbatim from `tokenmaxxxer/on-the-record` at
-> `docs/specs/flows-schema.md` (source of truth) as of 2026-07-31, for local
-> reference while implementing `repo-status-board` issue #1. Do not edit this
-> copy independently of the upstream document — re-sync it if the upstream
+> `docs/specs/flows-schema.md` (source of truth) as of 2026-08-03, for local
+> reference while implementing `repo-status-board` issue #1 (and re-synced
+> for the `flows[].plan` field, issue #23). Do not edit this copy
+> independently of the upstream document — re-sync it if the upstream
 > schema changes.
 
 Frozen contract for issue #172, based on the approved proposal
@@ -77,7 +78,11 @@ One entry per subject.
   "roles": [
     { "role": "implementation", "loop_state": "scope-approved", "verdict": "progressed" }
   ],
-  "prs": [201]
+  "prs": [201],
+  "plan": [
+    { "step": 1, "roles": ["implementation"], "done": true },
+    { "step": 2, "roles": ["execution-observation", "conformance-review"], "done": false }
+  ]
 }
 ```
 
@@ -88,6 +93,7 @@ One entry per subject.
 | `stage_derived` | boolean | `true` when `stage` was mapped from a rulebook-defined `loop_state`→stage rule; `false` when no mapping exists and `stage` holds the raw `loop_state` string verbatim |
 | `roles` | array of `{role, loop_state, verdict}` | per-role status within the subject |
 | `prs` | array of integers | PR numbers associated with the subject |
+| `plan` | `array<{step: int, roles: [string], done: bool}>` \| `null` | parsed from the subject issue body's `## 실행 계획` block. Step lines have the form `- [ ] step <N> <role>[ ‖ <role2> ...]`; `‖` splits parallel roles (same step number) into the `roles` array. Content inside code fences is ignored when parsing; header variants like `## 실행 계획 (...)` also match. `null` means no `## 실행 계획` block is present; `[]` means the header is present but no valid step line was found — these are distinct values, never interchangeable. A plan-only subject (an open issue with a `## 실행 계획` block but no other board activity yet) still gets a `flows[]` entry as soon as the issue is created. |
 
 When a subject's `loop_state` has no rulebook-defined mapping to one of
 the five named stages, `flows[].stage` is **not** forced into the
@@ -286,7 +292,10 @@ violation:
       "roles": [
         { "role": "implementation", "loop_state": "scope-approved", "verdict": "pending" }
       ],
-      "prs": [201]
+      "prs": [201],
+      "plan": [
+        { "step": 1, "roles": ["implementation"], "done": false }
+      ]
     }
   ],
   "sessions": [

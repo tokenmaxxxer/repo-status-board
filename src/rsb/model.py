@@ -29,6 +29,13 @@ class FlowRole:
 
 
 @dataclass
+class PlanStep:
+    step: int
+    roles: list
+    done: bool
+
+
+@dataclass
 class Flow:
     repo: str
     issue: int
@@ -36,6 +43,7 @@ class Flow:
     stage_derived: bool
     roles: list
     prs: list
+    plan: object
 
 
 @dataclass
@@ -152,6 +160,41 @@ def normalize_payload(repo_name, payload):
                     for r in fl.get("roles", [])
                 ],
                 prs=list(fl.get("prs", [])),
+                # `plan` extraction policy — see docs/issue-23/reports/implementation.md
+                # (finding #1) for the full writeup this comment summarizes.
+                #
+                # `plan: null` (no step block) and `plan: []` (header present,
+                # zero valid steps) are distinct per flows-schema.md §2.2 and
+                # must come out of normalization distinct too.
+                #
+                # Missing-key backward-compat policy (this repo's decision,
+                # not upstream's): a pre-`plan`-field payload has the `plan`
+                # key ABSENT entirely, not set to `null`. This repo treats an
+                # absent key the same as an explicit `null` -> `None`
+                # ("no plan data"), never as `[]` ("plan header present, zero
+                # steps") — collapsing "no plan key at all" into "an empty
+                # plan" would claim a step list was reported when none was.
+                # `fl.get("plan")` (no default argument) gives exactly this:
+                # `dict.get(key)` already defaults to `None`, and that
+                # default only ever fires when `key` is absent — when the
+                # key IS present holding an explicit `null`, `.get()`
+                # returns that `None` value itself, not a substituted
+                # default. (An earlier draft of this rationale claimed
+                # `fl.get("plan", [])` would turn an explicit `null` into
+                # `[]`; that was incorrect — `.get(key, default)` only ever
+                # substitutes `default` on a missing key, never on a
+                # present-but-`None` value. The real reason `.get("plan",
+                # [])` is rejected: that `[]` default would fire for the
+                # missing-key/legacy-payload case too, which breaks the
+                # absent-key-equals-null policy stated above.)
+                plan=(
+                    [
+                        PlanStep(step=st["step"], roles=list(st["roles"]), done=st["done"])
+                        for st in fl["plan"]
+                    ]
+                    if fl.get("plan") is not None
+                    else None
+                ),
             )
             for fl in payload.get("flows", [])
         ]

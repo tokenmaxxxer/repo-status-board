@@ -1,8 +1,21 @@
+import json
+import shutil
+import subprocess
+from pathlib import Path
+
 import pytest
 
 from rsb.model import PayloadError, merge_repos, normalize_payload
 
-from .fixtures import EMPTY_PAYLOAD, RAW_STAGE_PAYLOAD, WITH_LAST_ACTIVITY_PAYLOAD, WORKED_EXAMPLE
+from .fixtures import (
+    EMPTY_PAYLOAD,
+    PLAN_EMPTY_PAYLOAD,
+    PLAN_NULL_PAYLOAD,
+    PLAN_STEPS_PAYLOAD,
+    RAW_STAGE_PAYLOAD,
+    WITH_LAST_ACTIVITY_PAYLOAD,
+    WORKED_EXAMPLE,
+)
 
 
 def test_normalize_worked_example():
@@ -79,3 +92,155 @@ def test_merge_repos_collects_errors_without_dropping_other_repos():
     assert len(model.errors) == 1
     assert model.errors[0].repo == "repo-b"
     assert "boom" in model.errors[0].message
+
+
+# ---- `flows[].plan` normalization (issue #23) --------------------------
+
+
+def test_normalize_plan_missing_key_is_treated_as_none():
+    # Finding #1 (2차 교차 검토): explicit missing-key policy + regression
+    # test. WORKED_EXAMPLE's flow predates the `plan` field entirely (the
+    # key is absent, not set to `null`) -- this repo's documented policy
+    # (see model.py's comment above the `plan=` extraction) is that an
+    # absent key normalizes exactly like an explicit `null`: both become
+    # `None`, never `[]`.
+    normalized = normalize_payload("on-the-record", WORKED_EXAMPLE)
+    assert "plan" not in WORKED_EXAMPLE["flows"][0]
+    assert normalized["flows"][0].plan is None
+
+
+def test_normalize_plan_explicit_null_is_none():
+    normalized = normalize_payload("plan-null", PLAN_NULL_PAYLOAD)
+    assert normalized["flows"][0].plan is None
+
+
+def test_normalize_plan_empty_list_stays_distinct_from_null():
+    normalized = normalize_payload("plan-empty", PLAN_EMPTY_PAYLOAD)
+    assert normalized["flows"][0].plan == []
+
+
+def test_normalize_plan_steps_with_parallel_roles():
+    normalized = normalize_payload("plan-steps", PLAN_STEPS_PAYLOAD)
+    plan = normalized["flows"][0].plan
+    assert len(plan) == 3
+    steps_by_number = {p.step: p for p in plan}
+    assert steps_by_number[1].roles == ["implementation"]
+    assert steps_by_number[1].done is True
+    assert steps_by_number[3].roles == ["implementation", "review"]
+    assert steps_by_number[3].done is False
+
+
+# ---- dashboard.js plan/aggregation behavior (issue #23) -----------------
+#
+# This repo has no JS test harness (no package.json, no jest/mocha config
+# — the approved phase-1 proposal explicitly rules out adding one, a
+# repo-wide decision out of this issue's scope) and the frozen phase-1
+# write set names only test/rsb_tests/test_model.py for new test
+# coverage, not a new JS test file. These tests exercise the *actual*
+# shipped dashboard.js (not a reimplementation) by shelling out to a
+# plain `node` binary directly — no framework, no config file, no new
+# dependency — which stays inside both constraints while still giving
+# automated regression coverage for findings #2 and #3.
+
+DASHBOARD_JS = Path(__file__).resolve().parents[2] / "src" / "rsb" / "web" / "dashboard.js"
+
+
+def _run_dashboard_js(script):
+    if shutil.which("node") is None:
+        pytest.skip("node is not installed; skipping dashboard.js behavior test")
+    program = (
+        "global.document = { getElementById: () => null };\n"
+        "const dashboard = require(%s);\n%s" % (json.dumps(str(DASHBOARD_JS)), script)
+    )
+    result = subprocess.run(["node", "-e", program], capture_output=True, text=True, timeout=10)
+    assert result.returncode == 0, f"node script failed:\n{result.stderr}"
+    return json.loads(result.stdout)
+
+
+def test_dashboard_js_plan_steps_sorted_by_step_number_ascending():
+    # Finding #3a: steps display in `step`-number ascending order, not
+    # array order.
+    flow = PLAN_STEPS_PAYLOAD["flows"][0]
+    result = _run_dashboard_js(
+        """
+        const flow = %s;
+        const planData = dashboard.buildPlanSteps(flow, [], flow.issue, %s);
+        console.log(JSON.stringify(planData.steps.map((s) => s.step)));
+        """
+        % (json.dumps(flow), json.dumps(PLAN_STEPS_PAYLOAD["repo"]))
+    )
+    assert result == [1, 2, 3]
+
+
+def test_dashboard_js_plan_steps_join_shows_all_pending_prs_not_just_first():
+    # Finding #3b: when multiple PRs are open for the same
+    # (issue, repo, role), all of them are shown, not just the first.
+    flow = PLAN_STEPS_PAYLOAD["flows"][0]
+    decisions = PLAN_STEPS_PAYLOAD["decision_queue"]
+    repo = PLAN_STEPS_PAYLOAD["repo"]
+    decisions_with_repo = [dict(d, repo=repo) for d in decisions]
+    result = _run_dashboard_js(
+        """
+        const flow = %s;
+        const decisions = %s;
+        const planData = dashboard.buildPlanSteps(flow, decisions, flow.issue, %s);
+        const step1 = planData.steps.find((s) => s.step === 1);
+        const implRole = step1.roles.find((r) => r.role === "implementation");
+        console.log(JSON.stringify(implRole.pendingPrs.map((d) => d.pr).sort()));
+        """
+        % (json.dumps(flow), json.dumps(decisions_with_repo), json.dumps(repo))
+    )
+    assert result == [501, 502]
+
+
+def test_dashboard_js_empty_plan_is_distinct_from_null_plan():
+    # Finding #3c: `plan: []` must render as an explicit "0 steps" state,
+    # not an empty/blank section indistinguishable from `plan: null`.
+    flow_empty = dict(PLAN_EMPTY_PAYLOAD["flows"][0], repo=PLAN_EMPTY_PAYLOAD["repo"])
+    flow_null = dict(PLAN_NULL_PAYLOAD["flows"][0], repo=PLAN_NULL_PAYLOAD["repo"])
+    result = _run_dashboard_js(
+        """
+        const empty = dashboard.buildPlanSteps(%s, [], %s, %s);
+        const nul = dashboard.buildPlanSteps(%s, [], %s, %s);
+        console.log(JSON.stringify({ empty, nul }));
+        """
+        % (
+            json.dumps(flow_empty),
+            json.dumps(flow_empty["issue"]),
+            json.dumps(flow_empty["repo"]),
+            json.dumps(flow_null),
+            json.dumps(flow_null["issue"]),
+            json.dumps(flow_null["repo"]),
+        )
+    )
+    assert result["empty"] == {"steps": []}
+    assert result["nul"] is None
+
+
+def test_dashboard_js_select_summary_counts_in_progress_and_raw_unmapped_flows():
+    # Finding #2 (behavior, corrected wording documented in the record and
+    # in dashboard.js's isFlowInProgress comment): "in progress" counts
+    # proposal/approved/implementing plus any stage_derived:false (raw,
+    # unmapped loop_state) flow, and excludes delivered/closed.
+    data = {
+        "decisions": [],
+        "sessions": [],
+        "closure_sweep": [],
+        "unapproved_open_prs": [],
+        "errors": [],
+        "flows": [
+            {"stage": "proposal", "stage_derived": True},
+            {"stage": "approved", "stage_derived": True},
+            {"stage": "delivered", "stage_derived": True},
+            {"stage": "closed", "stage_derived": True},
+            {"stage": "some-unmapped-state", "stage_derived": False},
+        ],
+    }
+    result = _run_dashboard_js(
+        """
+        const data = %s;
+        console.log(JSON.stringify(dashboard.selectSummary(data).flows.label));
+        """
+        % json.dumps(data)
+    )
+    assert result == "3 flows in progress"
