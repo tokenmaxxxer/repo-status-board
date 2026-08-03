@@ -403,7 +403,7 @@ function renderData(data) {
 async function load() {
   renderSkeleton();
   try {
-    const res = await fetch("/api/board.json");
+    const res = await fetch("api/board.json");
     if (!res.ok) {
       renderFullError(`server returned ${res.status}`);
       return;
