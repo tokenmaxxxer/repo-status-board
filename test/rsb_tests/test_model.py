@@ -9,6 +9,7 @@ from rsb.model import PayloadError, merge_repos, normalize_payload
 
 from .fixtures import (
     EMPTY_PAYLOAD,
+    MISSING_OWNER_NAME_PAYLOAD,
     PLAN_EMPTY_PAYLOAD,
     PLAN_NULL_PAYLOAD,
     PLAN_STEPS_PAYLOAD,
@@ -83,6 +84,27 @@ def test_merge_repos_sorts_decisions_by_age_descending():
 
     model = merge_repos([("repo-a", a, None), ("repo-b", b, None)])
     assert [d.age_hours for d in model.decisions] == [100.0, 22.8]
+
+
+def test_normalize_payload_returns_owner_name_from_repo_field():
+    normalized = normalize_payload("on-the-record", WORKED_EXAMPLE)
+    assert normalized["owner_name"] == "tokenmaxxxer/on-the-record"
+
+
+def test_normalize_payload_owner_name_is_none_when_repo_field_absent():
+    assert "repo" not in MISSING_OWNER_NAME_PAYLOAD
+    normalized = normalize_payload("empty-repo", MISSING_OWNER_NAME_PAYLOAD)
+    assert normalized["owner_name"] is None
+
+
+def test_merge_repos_fills_owner_name_by_repo():
+    a = normalize_payload("repo-a", WORKED_EXAMPLE)
+    b = normalize_payload("repo-b", MISSING_OWNER_NAME_PAYLOAD)
+    model = merge_repos([("repo-a", a, None), ("repo-b", b, None)])
+    assert model.owner_name_by_repo == {
+        "repo-a": "tokenmaxxxer/on-the-record",
+        "repo-b": None,
+    }
 
 
 def test_merge_repos_collects_errors_without_dropping_other_repos():

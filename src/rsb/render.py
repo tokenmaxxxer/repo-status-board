@@ -171,6 +171,7 @@ def render_json_model(model, generated_at):
     return {
         "generated_at": generated_at,
         "generated_at_by_repo": model.generated_at_by_repo,
+        "owner_name_by_repo": model.owner_name_by_repo,
         "decisions": _dataclass_to_dict(model.decisions),
         "flows": _dataclass_to_dict(model.flows),
         "sessions": _dataclass_to_dict(model.sessions),

@@ -38,6 +38,7 @@ def test_api_board_json_returns_normalized_shape(tmp_path):
         assert payload["decisions"][0]["issue"] == 172
         assert payload["flows"][0]["stage"] == "implementing"
         assert "generated_at" in payload
+        assert payload["owner_name_by_repo"]["on-the-record"] == "tokenmaxxxer/on-the-record"
     finally:
         _stop(server, thread)
 
