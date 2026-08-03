@@ -45,6 +45,23 @@ No live `spawn.py` dependency — the subprocess boundary
 `test/rsb_tests/fixtures.py`, including the worked example from
 `docs/specs/flows-schema.md` §7.
 
+`dashboard.js`'s pure/DOM-free helpers (the `module.exports` list) get
+`node -e` coverage via `test_model.py`'s `_run_dashboard_js`, gated by
+`pytest.skip()` if `node` isn't on `PATH`. Its DOM-wiring layer — event
+listeners, `<select>` population, `load()`'s fetch path — is covered
+separately by `test/rsb_tests/test_dashboard_dom.py`, which loads the
+actual shipped `dashboard.js` against a real jsdom DOM and dispatches
+real events (issue #44). One-time prerequisite, gated the same way:
+
+```
+npm install --prefix test
+```
+
+If `test/node_modules/jsdom` isn't present, the DOM suite skips instead
+of failing. Future verification/smoke-check sessions should extend this
+harness (add a test function, reusing `_run_dom_js`) instead of writing
+a new one-off script — this is what it exists to replace.
+
 ## Static deploy (GitHub Pages)
 
 `.github/workflows/deploy-board.yml` runs on a 30-minute `schedule` plus
