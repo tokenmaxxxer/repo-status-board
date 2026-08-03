@@ -328,3 +328,115 @@ in advance), mirroring `docs/issue-23/reports/implementation.md`'s
 `a858b80` reference (a sha for the pre-amend/pre-rebase state of that
 commit, not the one ultimately reachable in `main` history) rather than
 claiming a resolvable-forever pointer.
+
+## Fast-follow — repo filter wiring (issue #29 follow-up comment, this session)
+
+code_under_review: src/rsb/web/dashboard.js
+loop_state: landed
+
+PR #30 (the phase-2 work above) merged, but a follow-up issue #29
+comment from live-deployment verification found acceptance criterion 3
+still unmet: `filterByRepo()`/`repoList()` existed (pure, tested) but
+were never called — `repoList()` had zero call sites outside its own
+definition, `REPO_FILTER` was captured at module load and never used
+again, and the deployed `<select>` only ever showed "All repos". This
+is exactly "Open findings" item 1 in the section above, which already
+recommended "a follow-up build (fast-follow on this same approved
+proposal, not a new proposal round, since nothing here changes the
+approved design)" — so this session executes that fast-follow directly
+against the already-approved `docs/issue-29/proposals/implementation.md`
+item 6, with no new proposal/approval round.
+
+### What was done
+
+`src/rsb/web/dashboard.js`:
+- Added `updateRepoFilterOptions(data)`: rebuilds `REPO_FILTER`'s
+  `<option>`s from `repoList(data)`, prefixed with the existing "All
+  repos" (`""`) option; restores the previously-selected repo if it's
+  still present in the new list, else falls back to `""` (the exact
+  behavior the issue comment specified).
+- `load()` now assigns the fetched payload to the module-scope
+  `boardData` (declared but previously never written — its own comment
+  already described this intended use), calls
+  `updateRepoFilterOptions(boardData)`, and renders via
+  `renderData(filterByRepo(boardData, REPO_FILTER.value))` instead of
+  the raw unfiltered payload — so a page load while a repo is already
+  selected (e.g. after Refresh) renders pre-filtered rather than
+  flashing the full set.
+- Added a `change` listener on `REPO_FILTER` (browser-only init block,
+  alongside the existing `REFRESH_BUTTON` listener): resets
+  `selectedIssue = null` (an open detail panel for an issue that may
+  not exist in the new filtered view would otherwise show stale/wrong
+  data) then re-renders via `renderData(filterByRepo(boardData,
+  REPO_FILTER.value))` — no refetch, matching `filterByRepo`'s existing
+  client-side-recompute design.
+
+No other files changed; `filterByRepo`/`repoList` themselves were
+already correct and already had test coverage from the prior session,
+so no test changes were needed for this wiring-only fix.
+
+### Manual browser verification
+
+A literal Chrome/Firefox GUI process could not be launched in this
+sandbox: Chrome's process-singleton startup path needs a Unix socket
+outside the sandbox's allowed write set and aborts immediately
+(`Failed to create socket directory` / `Aborting now to avoid profile
+corruption`), independent of `--user-data-dir`, `--headless`, or
+`--no-sandbox`; this reproduced identically against the system's
+installed Google Chrome via both raw CLI invocation and
+puppeteer-core. In its place, this session ran a jsdom-hosted
+verification: `jsdom` parsing the actual `src/rsb/web/index.html`,
+executing the actual unmodified `src/rsb/web/dashboard.js` bytes in
+that window's realm (`window.eval`, not `require()` — the same global
+`<script>` execution model a browser uses, not the Node
+`module.exports` path used by the pure-function unit tests), with
+`window.fetch` delegating to Node's real `fetch` against a real,
+running `rsb serve` process (throwaway two-repo TOML config,
+`.tmp-verify/`, deleted after the check — not part of this diff)
+serving real merged multi-repo JSON. This is a real DOM/event engine
+executing the real production file end to end, but it is not a literal
+browser window — recorded here plainly rather than overclaimed.
+
+Verified via real `dispatchEvent(new Event("change"))` calls on
+`#repo-filter` (not direct function calls into dashboard internals):
+- Initial load populated `#repo-filter` with `["", "repo-a",
+  "repo-b"]` options (previously always just `[""]`).
+- Selecting `repo-a` narrowed all four tables to only `repo-a` rows
+  (decisions 3→2, flows 1→1, sessions 1→1, ledger 1→1) and recomputed
+  the summary chips accordingly (`"3 awaiting decision"` → `"2 awaiting
+  decision"`, `"3 sessions active"` → `"1 sessions active"`, etc.).
+- Selecting `repo-b` likewise narrowed to only `repo-b` rows with its
+  own distinct counts.
+- Selecting "All repos" (`""`) restored the full unfiltered view
+  exactly matching the initial state.
+- Selection-persistence: with `repo-a` selected, a real `click` on
+  `#refresh-button` (→ real `load()` → real refetch) left `#repo-filter`
+  still showing `repo-a` selected and the table still filtered to
+  `repo-a` afterward, confirming the "keep previous selection if still
+  present" behavior specified in the issue comment.
+
+Not verified (same limitation as the "Open findings" section above,
+unchanged by this session): actual visual rendering, `:focus-visible`
+styling, and real-browser keyboard interaction with the `<select>`.
+
+### What did not work
+
+None — the wiring described in "Open findings" item 1 above was
+implemented as specified on the first pass; the jsdom verification
+above passed without needing a code correction.
+
+### Self-check
+
+closed_checks:
+- repo-filter-select-populated-and-wired: jsdom-verified (see "Manual
+  browser verification" above) that `#repo-filter` options come from
+  `repoList(boardData)` after load, and that a real `change` event
+  triggers `renderData(filterByRepo(boardData, value))` — passed at
+  the commit introducing this fix (see this record's own commit in
+  `git log` for this branch; not restated here to avoid the
+  pre-commit-sha-unknowable problem the section above already
+  documents).
+- full-test-suite: `python3 -c "import sys; sys.path.insert(0, 'src');
+  import pytest; sys.exit(pytest.main(['test/', '-q']))"` — 49 passed,
+  0 failed, 0 skipped, unchanged from before this session's edit (no
+  test files touched).

@@ -408,6 +408,22 @@ function renderDetailPanel(data, issue, repo) {
   `;
 }
 
+// Repopulates the repo-filter `<select>`'s <option>s from the current
+// board payload (issue #29 requirement 2 — this was previously never
+// called, leaving the select stuck at just "All repos"). Preserves the
+// previously-selected repo if it's still present in the new list;
+// falls back to the "All repos" (`""`) option if the selected repo
+// disappeared (e.g. it stopped erroring and stopped appearing, or was
+// removed from config).
+function updateRepoFilterOptions(data) {
+  const previousValue = REPO_FILTER.value;
+  const repos = repoList(data);
+  REPO_FILTER.innerHTML = [`<option value="">All repos</option>`]
+    .concat(repos.map((r) => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`))
+    .join("");
+  REPO_FILTER.value = repos.includes(previousValue) ? previousValue : "";
+}
+
 function attachRowClickHandlers(data) {
   MAIN.querySelectorAll("tbody tr[data-issue]").forEach((row) => {
     row.addEventListener("click", () => {
@@ -490,7 +506,9 @@ async function load() {
       return;
     }
     const data = await res.json();
-    renderData(data);
+    boardData = data;
+    updateRepoFilterOptions(boardData);
+    renderData(filterByRepo(boardData, REPO_FILTER.value));
   } catch (err) {
     renderFullError(err.message || String(err));
   }
@@ -502,6 +520,10 @@ async function load() {
 // never defined under plain Node, so this never changes browser behavior.
 if (typeof window !== "undefined") {
   REFRESH_BUTTON.addEventListener("click", load);
+  REPO_FILTER.addEventListener("change", () => {
+    selectedIssue = null;
+    renderData(filterByRepo(boardData, REPO_FILTER.value));
+  });
   load();
 }
 
