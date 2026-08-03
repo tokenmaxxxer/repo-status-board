@@ -1,12 +1,13 @@
 """`rsb` CLI entrypoint — see docs/issue-1/proposals/cli-design.md for the design."""
 
 import argparse
+import functools
 import json
 import sys
 import time
 
 from rsb.config import ConfigError, load_config, resolve_config_path
-from rsb.fetch import fetch_board
+from rsb.fetch import DEFAULT_TIMEOUT_SECONDS, fetch_board
 from rsb.render import CLEAR_SCREEN, render_json_model, render_text
 from rsb.webserver import run_server
 
@@ -31,6 +32,13 @@ def build_arg_parser():
     watch_group.add_argument("--once", action="store_true", help="single render and exit (default behavior)")
     parser.add_argument("--no-color", action="store_true", help="disable ANSI styling")
     parser.add_argument("--json", action="store_true", help="print normalized payload as JSON instead of rendering")
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=DEFAULT_TIMEOUT_SECONDS,
+        metavar="SECONDS",
+        help=f"per-repo subprocess timeout in seconds (default {DEFAULT_TIMEOUT_SECONDS})",
+    )
 
     subparsers = parser.add_subparsers(dest="command")
     serve_parser = subparsers.add_parser("serve", help="serve the web dashboard over HTTP")
@@ -55,8 +63,8 @@ def _now_iso():
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
-def _run_once(repo_configs, as_json):
-    model = fetch_board(repo_configs)
+def _run_once(repo_configs, as_json, timeout):
+    model = fetch_board(repo_configs, timeout=timeout)
     generated_at = _now_iso()
     if as_json:
         print(json.dumps(render_json_model(model, generated_at), indent=2))
@@ -83,7 +91,8 @@ def main(argv=None):
 
     if getattr(args, "command", None) == "serve":
         print(f"rsb: serving dashboard on http://{args.host}:{args.port}")
-        run_server(repo_configs, args.host, args.port, fetch_board, log_path=args.log)
+        fetch_fn = functools.partial(fetch_board, timeout=args.timeout)
+        run_server(repo_configs, args.host, args.port, fetch_fn, log_path=args.log)
         return 0
 
     if args.watch is not None:
@@ -91,13 +100,13 @@ def main(argv=None):
         try:
             while True:
                 sys.stdout.write(CLEAR_SCREEN)
-                _run_once(repo_configs, as_json=False)
+                _run_once(repo_configs, as_json=False, timeout=args.timeout)
                 sys.stdout.flush()
                 time.sleep(interval)
         except KeyboardInterrupt:
             return 0
 
-    return _run_once(repo_configs, as_json=args.json)
+    return _run_once(repo_configs, as_json=args.json, timeout=args.timeout)
 
 
 if __name__ == "__main__":

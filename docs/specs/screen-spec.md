@@ -51,9 +51,18 @@ background, `font-family-base` for all text unless noted.
   renders raw hours plus an `AgeBucketBadge` using the design-system.md
   §2.4 bucket rule: `fresh` <4h → `status-neutral`, `aging` 4–24h →
   `status-warning`, `stale` ≥24h → `status-error`.
-- Row click opens `DetailPanel` (§1.6).
+- Issue-cell button click opens `DetailPanel` (§1.6) — the Issue cell
+  renders a `<button class="row-toggle">` (issue #23
+  execution-observation finding; issue #29 requirement 5), not a
+  clickable `<tr>`.
 - Region-empty state: `EmptyStateMessage` "Nothing awaiting decision"
   (per §2.3 below).
+- All four data tables (Decision queue, Flows, Sessions, Accounting
+  ledger) render **Repo as the first column** (issue #29 requirement 3)
+  and each wraps in its own `.table-scroll` container (`dashboard.css`)
+  so a wide table scrolls horizontally on its own at narrow widths —
+  there is no page-level horizontal scroll and no separate mobile card
+  layout.
 
 ### 1.4 Flows table — `DataTable` + `RoleChip`
 
@@ -62,8 +71,8 @@ background, `font-family-base` for all text unless noted.
 - Roles column: one `RoleChip` per `role:loop_state` pair —
   `status-neutral` background, `font-family-mono` for the state text.
 - PRs column: `font-family-mono` for issue/PR numbers.
-- Row click opens `DetailPanel`. Region-empty: `EmptyStateMessage`
-  "(none)".
+- Issue-cell button click opens `DetailPanel` (same `row-toggle` pattern
+  as §1.3). Region-empty: `EmptyStateMessage` "(none)".
 
 ### 1.5 Sessions table — `DataTable` + `AliveBadge`
 
@@ -142,7 +151,18 @@ background, `font-family-base` for all text unless noted.
 
 - `status-warning` background/foreground/border, placed directly under
   the header, `space-4` gap above the summary strip.
-- Copy: "{M} of {N} repos failed to load — {repo}: {message}(, …)".
+- Copy (as actually rendered by `dashboard.js`'s `renderData()`
+  `PARTIAL_BANNER.innerHTML` block): a single always-visible line, `"{M}
+  of {N} repos failed to load — {repo}: {message}, {repo}: {message},
+  …"` — every failed repo's `repo: message` pair joined with `, ` after
+  the em dash — followed by the `Retry` link/button. (The approved
+  proposal for issue #29 additionally specifies collapsing the per-repo
+  detail behind `<details><summary>Details</summary>...</details>`,
+  leaving only the `"{M} of {N} repos failed to load"` line always
+  visible; that collapse is not yet wired into `dashboard.js` as of this
+  writing — see `docs/issue-29/reports/implementation.md` "Open
+  findings". This line documents the copy as it actually renders today,
+  not the not-yet-built collapsed form.)
 - Retry action styled as a text/link button in
   `color-action-primary-foreground` on the warning background (falls
   back to `status-warning`'s foreground token if the action-primary

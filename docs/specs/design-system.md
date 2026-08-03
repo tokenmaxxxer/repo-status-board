@@ -145,7 +145,13 @@ the pilot isn't unusable narrower:
 | `grid-max-width` | 1440px | content max-width, centered, `space-page-margin` gutters |
 
 Multi-device/mobile optimization is out of scope; the 768px floor
-exists only so the single screen degrades gracefully.
+exists only so the single screen degrades gracefully. Issue #29 added
+per-table horizontal scroll (`.table-scroll`, `dashboard.css`) so a wide
+table (e.g. Flows' Repo/Issue/Stage/Plan/Roles/PRs columns) can scroll
+independently of the page at narrow widths instead of forcing a
+page-level horizontal scroll or wrapping; this is a targeted overflow
+fix, not full responsive/mobile optimization, which remains out of
+scope.
 
 ## 6. Component inventory
 
@@ -155,6 +161,7 @@ Named here, applied per-region in `docs/specs/screen-spec.md`.
 |---|---|
 | `PageHeader` | `font-size-heading`, `color-text-secondary`, `space-page-margin` |
 | `RefreshButton` | `color-action-primary-*` |
+| `RepoFilter` | native `<select>`, `font-size-body` (issue #29 requirement 2 — client-side filter over an already-fetched payload, no refetch) |
 | `SummaryChip` | `status-*` pair matching its metric, `font-size-300` |
 | `DataTable` | `space-table-cell-padding-*`, `font-size-body`, `color-border-default`, `color-surface-raised` |
 | `AgeBucketBadge` | `status-neutral/warning/error` per §2.4 |
@@ -168,6 +175,17 @@ Named here, applied per-region in `docs/specs/screen-spec.md`.
 | `EmptyStateMessage` | `color-text-secondary`, `font-size-body` |
 | `ErrorState` (full-page) | `status-error`, `font-size-heading` |
 | `PartialFailureBanner` | `status-warning` |
+
+`PartialFailureBanner` note (issue #29): the approved proposal calls for
+collapsing the per-repo `"{repo}: {message}"` detail behind
+`<details><summary>Details</summary>...</details>`, leaving only the
+`"{M} of {N} repos failed to load"` line always visible. As of this
+writing `dashboard.js` renders a single always-visible line with every
+`repo: message` pair comma-joined (no collapse yet) — see
+`docs/issue-29/reports/implementation.md` "Open findings" for tracking.
+`docs/specs/screen-spec.md` §2.5 documents the exact copy as currently
+rendered, which is the source of truth if this note and that section
+ever disagree.
 
 ## 7. Open items (not blocking, tracked for follow-up)
 

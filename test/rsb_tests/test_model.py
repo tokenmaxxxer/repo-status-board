@@ -244,3 +244,45 @@ def test_dashboard_js_select_summary_counts_in_progress_and_raw_unmapped_flows()
         % json.dumps(data)
     )
     assert result == "3 flows in progress"
+
+
+def test_dashboard_js_filter_by_repo_narrows_every_section():
+    # issue #29 requirement 2 — filterByRepo is a pure, DOM-free helper
+    # (module.exports guard, same convention as buildPlanSteps) that
+    # narrows an already-fetched payload to one repo with no refetch.
+    # Exercise every field it touches across two repos so a regression in
+    # any one of them (a forgotten .filter() on a new section, a typo in
+    # a repo key) is caught.
+    data = {
+        "decisions": [{"issue": 1, "repo": "repo-a"}, {"issue": 2, "repo": "repo-b"}],
+        "flows": [{"issue": 1, "repo": "repo-a"}, {"issue": 3, "repo": "repo-b"}],
+        "sessions": [{"issue": 1, "repo": "repo-a"}, {"issue": 4, "repo": "repo-b"}],
+        "ledger": [{"issue": 1, "repo": "repo-a"}, {"issue": 5, "repo": "repo-b"}],
+        "unattributed": [{"repo": "repo-a"}, {"repo": "repo-b"}],
+        "closure_sweep": [{"repo": "repo-a"}, {"repo": "repo-b"}],
+        "unapproved_open_prs": [{"repo": "repo-a"}, {"repo": "repo-b"}],
+        "errors": [{"repo": "repo-a", "message": "boom"}, {"repo": "repo-b", "message": "bang"}],
+        "generated_at_by_repo": {"repo-a": "2026-08-01T00:00:00Z", "repo-b": "2026-08-02T00:00:00Z"},
+    }
+    result = _run_dashboard_js(
+        """
+        const data = %s;
+        const filtered = dashboard.filterByRepo(data, "repo-a");
+        const unfiltered = dashboard.filterByRepo(data, "");
+        console.log(JSON.stringify({ filtered, unfiltered }));
+        """
+        % json.dumps(data)
+    )
+    filtered = result["filtered"]
+    assert [d["issue"] for d in filtered["decisions"]] == [1]
+    assert [f["issue"] for f in filtered["flows"]] == [1]
+    assert [s["issue"] for s in filtered["sessions"]] == [1]
+    assert [le["issue"] for le in filtered["ledger"]] == [1]
+    assert len(filtered["unattributed"]) == 1
+    assert len(filtered["closure_sweep"]) == 1
+    assert len(filtered["unapproved_open_prs"]) == 1
+    assert [e["repo"] for e in filtered["errors"]] == ["repo-a"]
+    assert filtered["generated_at_by_repo"] == {"repo-a": "2026-08-01T00:00:00Z"}
+    # Falsy repo (e.g. the "All repos" option's value "") returns the data
+    # unchanged.
+    assert result["unfiltered"] == data
