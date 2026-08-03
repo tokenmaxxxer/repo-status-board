@@ -55,7 +55,7 @@ same-layer paired foreground token: seeing `*-background` implies
 |---|---|---|
 | `color-surface-page` | `neutral-0` | page background |
 | `color-surface-raised` | `neutral-0` | table/panel background, w/ border |
-| `color-border-default` | `neutral-300` | table/panel borders |
+| `color-border-default` | `neutral-500` | table/panel borders |
 | `color-text-primary` | `neutral-900` | body text, table cells |
 | `color-text-secondary` | `neutral-500` | timestamps, secondary labels |
 | `color-action-primary-background` | `blue-500` | refresh button, links |
@@ -65,7 +65,12 @@ Contrast: `neutral-900` on `neutral-0` = 17.9:1. `neutral-0` on
 `blue-500` = 4.6:1 (passes 4.5:1 normal-text floor).
 `color-text-secondary` (`neutral-500` on `neutral-0`) = 4.6:1 — passes
 at normal-text size; do not drop this pairing below 14px without
-re-checking.
+re-checking. `color-border-default` (`neutral-500` on `neutral-0`,
+issue #38) = 4.6:1 — well above the 3:1 WCAG 1.4.11 non-text-contrast
+floor for a UI-component boundary (table/panel borders convey
+structure); previously `neutral-300` on `neutral-0` ≈ 1.47:1, below
+that floor. Reuses the already-defined `neutral-500` primitive, no new
+token added.
 
 ### 2.3 Semantic — status (drives age buckets, badges, hygiene, errors)
 
@@ -144,14 +149,22 @@ the pilot isn't unusable narrower:
 | `breakpoint-lg` | 1200px | at/above: detail panel renders as a side panel; below, expandable row |
 | `grid-max-width` | 1440px | content max-width, centered, `space-page-margin` gutters |
 
-Multi-device/mobile optimization is out of scope; the 768px floor
-exists only so the single screen degrades gracefully. Issue #29 added
-per-table horizontal scroll (`.table-scroll`, `dashboard.css`) so a wide
-table (e.g. Flows' Repo/Issue/Stage/Plan/Roles/PRs columns) can scroll
-independently of the page at narrow widths instead of forcing a
-page-level horizontal scroll or wrapping; this is a targeted overflow
-fix, not full responsive/mobile optimization, which remains out of
-scope.
+Issue #29 added per-table horizontal scroll (`.table-scroll`,
+`dashboard.css`) so a wide table (e.g. Flows' Repo/Issue/Stage/Plan/
+Roles/PRs columns) can scroll independently of the page at narrow
+widths instead of forcing a page-level horizontal scroll or wrapping.
+Issue #38 closed the remaining gap that scroll alone didn't cover: the
+grid items around `.table-scroll` (`#main-content`,
+`#detail-panel-slot`) now carry `min-width: 0` and `table.data-table`
+carries an explicit `min-width: 640px`, so the page itself no longer
+gets pushed into horizontal scroll at narrow viewports (previously it
+did, despite `.table-scroll` existing — a grid item's automatic
+min-width is computed from its *unclamped* content, not the
+post-scroll box), and every interactive control (`row-toggle`,
+`repo-filter`, `refresh-button`) now guarantees a 24×24px minimum touch
+target. Full responsive/mobile optimization (e.g. a card layout) is
+still out of scope — this is overflow-prevention plus touch-target
+sizing, not a redesign.
 
 ## 6. Component inventory
 
@@ -160,37 +173,39 @@ Named here, applied per-region in `docs/specs/screen-spec.md`.
 | Component | Key tokens |
 |---|---|
 | `PageHeader` | `font-size-heading`, `color-text-secondary`, `space-page-margin` |
-| `RefreshButton` | `color-action-primary-*` |
-| `RepoFilter` | native `<select>`, `font-size-body` (issue #29 requirement 2 — client-side filter over an already-fetched payload, no refetch) |
+| `RefreshButton` | `color-action-primary-*`, `:hover` (`blue-700`)/`:focus-visible` (`blue-500` outline)/`:disabled` (0.5 opacity, disabled while a load is in flight — issue #38 P2-5/P3-8), 24×24px minimum size |
+| `RepoFilter` | native `<select>`, `font-size-body` (issue #29 requirement 2 — client-side filter over an already-fetched payload, no refetch); `color-border-default` border, `:focus-visible` (`blue-500` outline), 24×24px minimum size (issue #38 P2-5) |
 | `SummaryChip` | `status-*` pair matching its metric, `font-size-300` |
-| `DataTable` | `space-table-cell-padding-*`, `font-size-body`, `color-border-default`, `color-surface-raised`. Issue/PR cells: leading icon-only `row-toggle` disclosure button (▸/▾, no color token — inherits text color) + trailing `#<n>` link (`.number-link`, `color-action-primary-background`, issue #36) |
+| `DataTable` | `space-table-cell-padding-*`, `font-size-body`, `color-border-default`, `color-surface-raised`, `min-width: 640px` (issue #38 P1-1), visually-hidden `<caption>` + `th[scope=col]` (issue #38 P2-7), `tr:hover` (`neutral-100`)/`tr.selected-row` (`status-info-background`) row states (issue #38 P2-7/P3-8). Issue/PR cells: leading icon-only `row-toggle` disclosure button (▸/▾, no color token — inherits text color, 24×24px minimum size per issue #38 P2-5) + trailing `#<n>` link (`.number-link`, `color-action-primary-background`, issue #36) |
 | `AgeBucketBadge` | `status-neutral/warning/error` per §2.4 |
 | `RoleChip` | `status-neutral`, `font-family-mono` |
 | `AliveBadge` | `status-success/neutral` per §2.4 |
-| `DetailPanel` | `breakpoint-lg` layout switch, `space-4` internal gaps |
-| `AccountingRow` | `font-family-mono`, `color-text-secondary` |
+| `DetailPanel` | `breakpoint-lg` layout switch — now actually wired (issue #38 P1-3): side panel at/above, `<tr>` inserted immediately after the selected row below it. `role="region" aria-labelledby="detail-panel-heading"`, `<h2 id="detail-panel-heading" tabindex="-1">` (issue #38 P1-4/P2-7); focus moves to this heading on open, back to the row's `row-toggle` on close. `space-4` internal gaps |
+| `AccountingRow` | `font-family-mono`, `color-text-secondary`; outcomes now render as `.badge.status-neutral` chips like every other status value on the page (issue #38 P3-8), not bare text |
 | `HygieneListItem` | `status-error`, `font-size-body` |
 | `ErrorListItem` | `status-error` |
-| `SkeletonBlock` | `color-neutral-100/300` (no motion token — static or CSS-default pulse, implementation's call) |
+| `SkeletonBlock` | `color-neutral-100/300` (no motion token — static or CSS-default pulse, implementation's call); `.skeleton-row` height now matches a real data row's computed height (`space-table-cell-padding-y` × 2 + line-height, issue #38 P3-8) instead of a fixed `2em` guess |
 | `EmptyStateMessage` | `color-text-secondary`, `font-size-body` |
-| `ErrorState` (full-page) | `status-error`, `font-size-heading` |
-| `PartialFailureBanner` | `status-warning` |
+| `ErrorState` (full-page) | `status-error`, `font-size-heading`, now an `<h2>` (not `<h1>` — the page's own `<h1>` stays the document's only one, issue #38 P2-6); `role="alert"`; summary line + collapsed `<details>` holding the raw provider/backend message (issue #38 P2-6) |
+| `PartialFailureBanner` | `status-warning`; `aria-live="polite"` static on `#partial-banner` (issue #38 P1-4) |
 
-`PartialFailureBanner` note (issue #29): the approved proposal calls for
-collapsing the per-repo `"{repo}: {message}"` detail behind
-`<details><summary>Details</summary>...</details>`, leaving only the
-`"{M} of {N} repos failed to load"` line always visible. As of this
-writing `dashboard.js` renders a single always-visible line with every
-`repo: message` pair comma-joined (no collapse yet) — see
-`docs/issue-29/reports/implementation.md` "Open findings" for tracking.
-`docs/specs/screen-spec.md` §2.5 documents the exact copy as currently
-rendered, which is the source of truth if this note and that section
-ever disagree.
+`PartialFailureBanner` note (issue #29/#38): the approved issue-29
+proposal called for collapsing the per-repo `"{repo}: {message}"` detail
+behind `<details><summary>Details</summary>...</details>`, leaving only
+the `"{M} of {N} repos failed to load"` line always visible. That gap
+(tracked in `docs/issue-29/reports/implementation.md` "Open findings")
+is now closed by issue #38 P2-6 — `dashboard.js` wires the collapse
+using the same `collapsibleDetailHtml` helper the full-page `ErrorState`
+uses. `docs/specs/screen-spec.md` §2.5 documents the exact copy as
+currently rendered.
 
 ## 7. Open items (not blocking, tracked for follow-up)
 
 - Age-bucket hour thresholds are a first cut, not user-tested — flag
   for revision once H3 (deferred per hypotheses.md) is picked up.
+- `table.data-table`'s `min-width: 640px` (issue #38 P1-1) is a
+  first-attempt value, same status as the age-bucket thresholds above —
+  revisit if a table's real content needs more or less.
 - No dark-mode token set defined — not requested; add only if a future
   issue asks for it.
 - Implementation (`src/`) is out of scope for this spec.

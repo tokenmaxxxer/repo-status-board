@@ -334,3 +334,35 @@ def test_dashboard_js_number_link_html_falls_back_to_plain_text_without_owner_na
         """
     )
     assert result == "#42"
+
+
+def test_dashboard_js_detail_row_html_wraps_content_in_a_tr_with_colspan():
+    # issue #38 P1-3 — narrow-screen inline detail row, inserted as a
+    # sibling <tr> immediately after the toggled row.
+    result = _run_dashboard_js(
+        """
+        console.log(JSON.stringify(dashboard.detailRowHtml(5, "<div>x</div>")));
+        """
+    )
+    assert result == '<tr class="detail-row"><td colspan="5"><div>x</div></td></tr>'
+
+
+def test_dashboard_js_collapsible_detail_html_escapes_summary_and_detail():
+    # issue #38 P2-6 — summary line + collapsed <details> so internal
+    # paths/messages aren't exposed by default; both arguments are escaped.
+    result = _run_dashboard_js(
+        """
+        console.log(JSON.stringify(dashboard.collapsibleDetailHtml("Details", "a/b: boom")));
+        """
+    )
+    assert result == "<details><summary>Details</summary><p>a/b: boom</p></details>"
+
+    escaped = _run_dashboard_js(
+        """
+        console.log(JSON.stringify(dashboard.collapsibleDetailHtml("<Details>", "<script>alert(1)</script>")));
+        """
+    )
+    assert escaped == (
+        "<details><summary>&lt;Details&gt;</summary>"
+        "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p></details>"
+    )
