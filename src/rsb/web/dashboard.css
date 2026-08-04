@@ -17,7 +17,7 @@
 
   --color-surface-page: var(--color-neutral-0);
   --color-surface-raised: var(--color-neutral-0);
-  --color-border-default: var(--color-neutral-300);
+  --color-border-default: var(--color-neutral-500);
   --color-text-primary: var(--color-neutral-900);
   --color-text-secondary: var(--color-neutral-500);
   --color-action-primary-background: var(--color-blue-500);
@@ -84,6 +84,20 @@ body {
 .mono { font-family: var(--font-family-mono); }
 .text-secondary { color: var(--color-text-secondary); }
 
+/* Standard sr-only technique (P2-7) — a positioning trick, not a design
+   token, so it's exempt from the token-block-only rule above. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  padding: 0;
+  margin: -1px;
+}
+
 /* PageHeader */
 .page-header {
   display: flex;
@@ -106,6 +120,30 @@ body {
   font-size: var(--font-size-body);
   cursor: pointer;
   margin-left: auto;
+  min-height: 24px;
+}
+.refresh-button:hover {
+  background: var(--color-blue-700);
+}
+.refresh-button:focus-visible {
+  outline: 2px solid var(--color-blue-500);
+  outline-offset: 2px;
+}
+.refresh-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+#repo-filter {
+  min-height: 24px;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-default);
+  border-radius: 4px;
+  font: inherit;
+}
+#repo-filter:focus-visible {
+  outline: 2px solid var(--color-blue-500);
+  outline-offset: 2px;
 }
 
 /* SummaryChip / status pairs */
@@ -138,6 +176,9 @@ body {
 /* DataTable */
 table.data-table {
   width: 100%;
+  /* First-attempt value (P1-1) — revisit like design-system.md §7's
+     age-bucket thresholds if a table's real content needs more/less. */
+  min-width: 640px;
   border-collapse: collapse;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-default);
@@ -148,14 +189,26 @@ table.data-table th, table.data-table td {
   border-bottom: 1px solid var(--color-border-default);
   text-align: left;
 }
+table.data-table tbody tr:hover {
+  background: var(--color-neutral-100);
+}
+/* P2-7: the selected row stays visually anchored across re-renders (e.g.
+   after Refresh), reusing the existing status-info token pairing. */
+tr.selected-row {
+  background: var(--color-status-info-background);
+}
 
 /* Each table scrolls horizontally on its own (issue #29 requirement 3) —
-   independent of the page, no separate mobile card UI. */
-.table-scroll { overflow-x: auto; }
+   independent of the page, no separate mobile card UI. `width: 100%`
+   keeps the scroll container itself from inflating past its parent (P1-1)
+   — the table's own `min-width` above is what scrolls inside it. */
+.table-scroll { overflow-x: auto; width: 100%; }
 
 /* Issue-cell disclosure trigger (issue #23 execution-observation finding;
-   issue #29 requirement 5) — the row itself is no longer the click target,
-   this button is. Strip default button chrome, inherit table typography. */
+   issue #29 requirement 5; icon-only since issue #36 moved it to a
+   leading glyph-only button once the issue number itself became a link)
+   — the row itself is no longer the click target, this button is. Strip
+   default button chrome; holds only the decorative ▸/▾ glyph. */
 .row-toggle {
   background: none;
   border: none;
@@ -164,25 +217,43 @@ table.data-table th, table.data-table td {
   cursor: pointer;
   padding: 0;
   text-align: left;
+  /* P2-5: the glyph is sized by inherited font-size-body, not a fixed
+     icon, so min-width/min-height (not padding) guarantee the 24x24px
+     WCAG 2.5.5 touch target regardless of font size. */
+  min-width: 24px;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .row-toggle:focus-visible {
   outline: 2px solid var(--color-blue-500);
   outline-offset: 2px;
 }
 
-/* External GitHub deep-link (issue #34) — separate sibling control next to
-   `.row-toggle` / PR number text, never overlapping it (scout-brief
-   must-be). Reads as secondary to the primary row action. */
-.external-link {
-  margin-left: var(--space-1);
-  color: var(--color-text-secondary);
+/* Issue-cell wrapper (issue #36) — keeps the leading row-toggle button
+   and the trailing #<n> link on one line; without this the pair could
+   wrap onto separate lines in narrower columns (e.g. the Flows table). */
+.issue-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+
+/* Issue/PR number link (issue #36, replaces issue #34's ↗ icon) — the
+   number itself is the link, blue at rest per design-system.md §2.2's
+   `color-action-primary-background` ("links" is an already-documented
+   use of this token). */
+.number-link {
+  color: var(--color-action-primary-background);
   text-decoration: none;
 }
-.external-link:hover,
-.external-link:focus {
-  color: var(--color-action-primary-background);
+.number-link:hover,
+.number-link:focus {
+  text-decoration: underline;
 }
-.external-link:focus-visible {
+.number-link:focus-visible {
   outline: 2px solid var(--color-blue-500);
   outline-offset: 2px;
 }
@@ -217,7 +288,7 @@ table.data-table th, table.data-table td {
   border-radius: 4px;
   height: 1em;
 }
-.skeleton-row { height: 2em; margin-bottom: var(--space-1); }
+.skeleton-row { height: calc(var(--space-table-cell-padding-y) * 2 + 1.4em); margin-bottom: var(--space-1); }
 
 /* PartialFailureBanner */
 .partial-banner {
@@ -250,11 +321,15 @@ table.data-table th, table.data-table td {
   text-align: center;
   padding: var(--space-8) var(--space-4);
 }
-.error-state h1 {
+.error-state h2 {
   font-size: var(--font-size-heading);
   color: var(--color-status-error-foreground);
 }
 .error-state p { color: var(--color-text-secondary); }
+.error-state details summary {
+  cursor: pointer;
+  margin-top: var(--space-2);
+}
 
 /* AccountingRow */
 .accounting-strip { margin-top: var(--space-8); }
@@ -277,11 +352,25 @@ table.data-table th, table.data-table td {
   margin-top: var(--space-4);
 }
 .detail-panel > * + * { margin-top: var(--space-4); }
+.detail-panel > h2 {
+  font-size: var(--font-size-300);
+  margin: 0;
+  font-weight: 600;
+}
 
 #page-body {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--space-4);
+}
+
+/* P1-1: a grid item's automatic min-width defaults to its content's
+   min-content size, which for a wide table can exceed the viewport and
+   push the whole page into horizontal scroll. `.table-scroll` above
+   already clamps scrolling within its own box; this clamps the grid
+   item itself so that box's min-content size can't inflate #page-body. */
+#main-content, #detail-panel-slot {
+  min-width: 0;
 }
 
 @media (min-width: 1200px) {
