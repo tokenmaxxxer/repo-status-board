@@ -263,6 +263,183 @@ trajectory is out of this role's scope per this role's proposal §3.
   manual-check narrative are reported above as *claimed, not
   independently reproduced*.
 
+## Session 2 — 2026-08-04, re-dispatch check and hand-off follow-through
+
+loop_state (session 2): `reopened` → `landed`.
+
+**Why this session exists.** This role was re-dispatched on 2026-08-04 on
+the premise that the approved observation had never run ("파일럿 중단으로
+세션 미실행"). The premise is false, and establishing that from artifacts
+rather than accepting it was this session's first act: PR #42
+(https://github.com/tokenmaxxxer/repo-status-board/pull/42) carries exactly
+two commits — `118092bd` (2026-08-03T11:38:39Z, phase 1) and `ce8c2c5f`
+(2026-08-03T12:22:57Z, sections 1-4 of this record) — and merged
+2026-08-03T12:31:39Z as `0c8a64b` on `main` (`gh pr view 42 --json
+commits,createdAt,mergedAt` and `git log origin/main --format='%h %cI %s'`,
+both read this session). Sections 1-4 are delivered work, not a pending
+task. This session adds only what session 1 could not know or did not
+check, and it does not rewrite session 1's text — the corrections in §8 are
+additive so that what session 1 actually concluded stays legible.
+
+### Independence statement (session 2)
+
+This role did not author or edit PR #30, PR #33, PR #37, PR #43, PR #45, or
+any file under `src/`, `test/`, or another role's `docs/issue-<n>/` tree,
+this session or any prior one. The only file this session writes is this
+record — this role's own write surface — and sections 1-4 above stand
+exactly as committed at `ce8c2c5f`. No `pytest`, `node`, `rsb serve`, or
+browser run was performed. Every claim below rests on commit diffs (`git
+show <sha>`), GitHub metadata (`gh pr view`, `gh issue view`), and this
+record's own committed text — never on reading a current `src/` file as
+evidence of what a role did. No session-2 verdict precedes this statement.
+
+### What was read this session
+
+- `gh issue view 29` — body plus all 5 comments with `createdAt`, including
+  the comment whose entire body is `APPROVE issue-29/execution-observation`,
+  posted by `jjongkwann` at 2026-08-03T11:53:58Z. `jjongkwann` is one of the
+  two entries in `docs/specs/approvers.md` (`JiwonJung94`, `jjongkwann`, read
+  at `origin/main`), so phase 2 opened validly in single-account mode.
+- `gh pr view 42` (title, commits, createdAt, mergedAt) and `gh pr view 43`
+  (title, files, createdAt, mergedAt); `gh pr list --state all`.
+- `git log origin/main --format='%h %cI %s' -12`; `git log 0c8a64b..origin/main --stat`.
+- `git show f353910 --stat`, `git show f353910 -- src/rsb/web/dashboard.js`,
+  `git show f353910 -- src/rsb/web/dashboard.css` — commit diffs, not current files.
+- `gh issue view 38` and `gh issue view 44` — full bodies and `createdAt`.
+- This record as landed, `docs/issue-29/reports/execution-observation.md:1-273` at `0c8a64b`.
+
+### 5. Outcome verdict (session 2) — was the approved observation delivered
+
+**Delivered, and correctly phase-gated.** The phase-2 artifact this role's
+contract names as the only one that matters —
+`docs/issue-29/reports/execution-observation.md` — exists on `main` with all
+three verdict levels rendered (§1 outcome, §2 trajectory, §3 step), landed by
+`ce8c2c5f` and merged as `0c8a64b` (`git log origin/main --format='%h %cI %s'
+-12`, read this session). Nothing about issue #29's step-2 execution-observation
+remains unexecuted, so a second full verdict pass on PR #30/#33 would duplicate
+`0c8a64b`, not add to it.
+
+### 6. Trajectory verdict (session 2) — was this role's own phase-1→phase-2 path sound
+
+**Sound on the gate, defective on the label.** Gate: phase-1 commit
+`118092bd` at 2026-08-03T11:38:39Z and PR #42 opened 11:39:12Z both precede
+the `APPROVE issue-29/execution-observation` comment at 11:53:58Z, and the
+phase-2 record commit `ce8c2c5f` at 12:22:57Z follows it — survey/scout/
+proposal, then real human approval, then record, in that order (`gh pr view
+42 --json commits,createdAt`, `gh issue view 29 --json comments`, both read
+this session). Label: PR #42's title was never updated after phase 2 landed
+on the same branch, so the squash-merge subject on `main` reads "issue-29
+phase 1: execution-observation of PR #30, #33" for a commit that contains the
+phase-2 record (`0c8a64b`, subject line read this session via `git log
+origin/main`) — see F3 in §7.
+
+### 7. Step verdict (session 2) — which specific artifact is deficient
+
+Three findings, all against this role's own artifacts; none against PR
+#30/#33, whose session-1 verdicts §1-§3 re-state unchanged.
+
+**F1 — §3's two hand-off action items were written without checking whether
+the gaps were already tracked, and both were already tracked.**
+- *Impact*: §3 tells a human "no PR or issue comment currently tracks it as
+  open" for Deficiency 1 (`docs/issue-29/reports/execution-observation.md:196-197`)
+  and "Nobody has picked it up since" for Deficiency 2 (`:231`), and its
+  action items ask for a new follow-up PR or issue. Acting on either as
+  written means filing a duplicate of open issue #38.
+- *Timeline*: issue #38 was created 2026-08-03T11:09:31Z (`gh issue view 38
+  --json createdAt`, read this session), 73 minutes before `ce8c2c5f`
+  (12:22:57Z), and its P2-6 names exactly Deficiency 1's gap — "부분 실패가
+  모든 레포 오류를 한 줄로 노출… 요약+접힌 상세 구조" — while its P1-3 names
+  exactly Deficiency 2's — "`insertDetailRow` 는 주석에만 존재하고 구현이
+  없으며, `WIDE_LAYOUT_QUERY` 도 죽은 상수다" (issue #38 body, read this
+  session). PR #43 for that issue was already open at 11:49:04Z, before the
+  approval comment (`gh pr view 43 --json createdAt`, read this session).
+- *Root cause*: the method frozen in
+  `docs/issue-29/proposals/execution-observation.md` §1 scoped the evidence
+  sweep to the observed PRs and issue #29's own comments; nothing in it
+  required enumerating the repo's other open issues and PRs before writing a
+  hand-off. The observation's tracing was thorough within its scope and blind
+  immediately outside it.
+- *Action item*: hand-off, method-level and inside this role's own write
+  surface — a future execution-observation proposal should make
+  `gh issue list --state open` / `gh pr list --state open` a required step
+  before any hand-off action item is written, so a recorded gap is checked
+  against existing tracking rather than assumed untracked.
+
+**F2 — §1's AC4 "Met" verdict was contradicted by a measurement that already
+existed when it was written.**
+- *Impact*: §1's AC4 row reads "**Met, by PR #30 itself.**" for the
+  requirement "모든 표의 첫 열이 `Repo` 이고, 좁은 화면에서 페이지 본문이
+  가로 스크롤되지 않는다" (`docs/issue-29/reports/execution-observation.md:72`),
+  resting on `.table-scroll { overflow-x: auto }` read from the diff. The
+  Repo-first-column half is correct; the no-page-body-scroll half was not
+  met at that time, so the record overstates one of issue #29's seven ACs.
+- *Timeline*: issue #38's P1-1, created 2026-08-03T11:09:31Z, records a
+  Chrome measurement — "390px 화면에서 실제 콘텐츠 폭이 621px 까지 늘어난다.
+  표별 스크롤이 아니라 페이지 본문이 통째로 밀린다" — and says so explicitly
+  of issue #29: "(issue #29 수용 기준 '좁은 화면에서 페이지 본문이 가로
+  스크롤되지 않는다' 가 실측상 미충족이었음이 이번에 확인됨)" (issue #38
+  body, read this session). §1's AC4 row was written 73 minutes later at
+  `ce8c2c5f`.
+- *Root cause*: same blind spot as F1 — `overflow-x: auto` on the table
+  wrapper is necessary but not sufficient for the AC (a grid item's automatic
+  `min-width: auto` still pushes the page), and this role cannot measure
+  rendered width without re-execution, which its contract prohibits. The
+  correct move under that prohibition was to cite the existing measurement
+  and record the AC as unmet-per-issue-#38, not to infer "Met" from the CSS
+  declaration alone.
+- *Action item*: hand-off — §8 below records the corrected AC4 status; no
+  edit to §1 is made, and no `src/`/`test/` change is proposed by this role.
+
+**F3 — PR #42 and its merge commit on `main` are labeled "phase 1" while
+carrying the phase-2 record.**
+- *Impact*: `git log origin/main` shows no phase-2 landing for
+  issue-29/execution-observation; the only subject line for this role's work
+  is "issue-29 phase 1: execution-observation of PR #30, #33" (`0c8a64b`,
+  read this session). Anyone reading merge history — the contract's own
+  definition of the board — cannot tell that the verdict landed, which is
+  the exact confusion that produced this session's re-dispatch premise.
+- *Timeline*: PR #42 opened 11:39:12Z with the phase-1 title; `ce8c2c5f`
+  (phase 2) pushed to the same PR 12:22:57Z; merged under the unchanged title
+  12:31:39Z (`gh pr view 42`, read this session).
+- *Root cause*: the contract requires phase 2 to be reported through the same
+  PR, and nothing in it requires retitling that PR when phase 2 lands; the
+  default is a title frozen at phase-1 wording.
+- *Action item*: hand-off — a role landing phase 2 on a phase-1-titled PR
+  should retitle it (e.g. "phase 1+2", as PR #24 and PR #28 did per
+  `gh pr list --state all`, read this session) before merge. Not retroactively
+  fixable here: `0c8a64b` is merged history and this role does not rewrite it.
+
+### 8. Follow-through on §3's hand-off items, as of 2026-08-04
+
+Both deficiencies §3 recorded as open are closed on `main`, by issue #38's
+PR #43 (`f353910`, merged 2026-08-03T12:25:48Z) — three minutes after
+`ce8c2c5f` was committed and six minutes before `0c8a64b` put it on `main`.
+Session 1's "still unmet on current `main`" statements were accurate when
+written and stale by the time they landed.
+
+| §3 item | Status on `main`, 2026-08-04 | Citation (commit diff, read this session) |
+|---|---|---|
+| Deficiency 1 — partial-failure banner has no `<details>` collapse (AC5) | **Closed.** `f353910` adds `collapsibleDetailHtml(summaryLabel, detailText)` returning `<details><summary>…</summary><p>…</p></details>`, and the banner now renders `${failedRepos.length} of ${total} repos failed to load — ` followed by that collapsed block. | `git show f353910 -- src/rsb/web/dashboard.js`, added lines defining `collapsibleDetailHtml` and the `repos failed to load` banner string |
+| Deficiency 2 — narrow-screen inline row expansion never implemented | **Closed.** `f353910` adds a `window.matchMedia(WIDE_LAYOUT_QUERY).matches` branch: wide viewports keep `DETAIL_SLOT.innerHTML = contentHtml`, narrow ones clear the slot and call `selectedRow.insertAdjacentHTML("afterend", detailRowHtml(...))`. | `git show f353910 -- src/rsb/web/dashboard.js`, added `renderDetail`-path hunk |
+| F2's corrected AC4 status (narrow-screen page-body scroll) | **Was unmet at PR #30/#33; closed on `main` by the same PR #43.** `f353910` adds `#main-content, #detail-panel-slot { min-width: 0 }` under a comment naming P1-1, plus `.table-scroll { overflow-x: auto; width: 100% }` and a table `min-width: 640px`. | `git show f353910 -- src/rsb/web/dashboard.css`, added P1-1 hunk |
+
+Two scope notes. First, this table reports that the code landed; it does not
+report that the fixes work — verifying rendered behaviour would require
+running the dashboard, which this role's contract prohibits, and `f353910`'s
+own record is issue #38's to write, not this one's. Second, no verdict is
+rendered here on issue #38 / PR #43's own trajectory — including the fact
+that a PR titled "phase 1" carried `+139/-26` of `src/rsb/web/dashboard.js`
+(`git show f353910 --stat`, read this session) — because that is another
+issue's subject and another role's write surface. It is recorded as an
+observation for the human, not as a finding against that role.
+
+Issue #44 (created 2026-08-03T11:54:38Z, `gh issue view 44`, read this
+session) independently names the same root-cause class §2 identified — "순수
+함수·마크업은 랜딩됐는데 DOM 배선이 빠진" defects passing a test suite that
+never touches DOM wiring — and its PR #45 landed `test/rsb_tests/test_dashboard_dom.py`
+(`git log 0c8a64b..origin/main --stat`, read this session). No action item is
+carried forward from §2's trajectory finding for that reason.
+
 ## loop_state transitions
 
 - `scope-approved` — 2026-08-03T11:53:58Z, on receipt of the
@@ -271,3 +448,11 @@ trajectory is out of this role's scope per this role's proposal §3.
   the enter of phase 2.
 - `landed` — this record committed and pushed on
   `issue-29/execution-observation`, reported through PR #42.
+- `reopened` — 2026-08-04, on re-dispatch of the same approved observation
+  (`APPROVE issue-29/execution-observation`, 2026-08-03T11:53:58Z, still the
+  governing approval — no second approval was sought or needed, since phase 2
+  for this subject was already open and never revoked). Session 2 scope:
+  re-dispatch check and hand-off follow-through only, per §5-§8; no re-verdict
+  on PR #30/#33.
+- `landed` — session 2's §5-§8 committed on `issue-29/execution-observation`
+  and reported through this branch's second PR.
