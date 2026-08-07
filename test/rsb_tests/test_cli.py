@@ -78,6 +78,48 @@ def test_main_all_repos_failed_returns_1(tmp_path, monkeypatch, capsys):
     assert exit_code == 1
 
 
+def test_main_partial_failure_returns_1_without_allow_partial(tmp_path, monkeypatch, capsys):
+    config_path = tmp_path / "boards.toml"
+    config_path.write_text(
+        '[[repo]]\nname = "on-the-record"\npath = "/x"\n\n[[repo]]\nname = "broken"\npath = "/y"\n'
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "fetch_board",
+        lambda repo_configs, **kwargs: merge_repos(
+            [
+                ("on-the-record", normalize_payload("on-the-record", WORKED_EXAMPLE), None),
+                ("broken", None, "boom"),
+            ]
+        ),
+    )
+
+    exit_code = cli.main(["--config", str(config_path), "--json"])
+    assert exit_code == 1
+
+
+def test_main_partial_failure_with_allow_partial_returns_0(tmp_path, monkeypatch, capsys):
+    config_path = tmp_path / "boards.toml"
+    config_path.write_text(
+        '[[repo]]\nname = "on-the-record"\npath = "/x"\n\n[[repo]]\nname = "broken"\npath = "/y"\n'
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "fetch_board",
+        lambda repo_configs, **kwargs: merge_repos(
+            [
+                ("on-the-record", normalize_payload("on-the-record", WORKED_EXAMPLE), None),
+                ("broken", None, "boom"),
+            ]
+        ),
+    )
+
+    exit_code = cli.main(["--config", str(config_path), "--json", "--allow-partial"])
+    assert exit_code == 0
+
+
 def test_main_default_timeout_reaches_fetch_board(tmp_path, monkeypatch, capsys):
     config_path = tmp_path / "boards.toml"
     config_path.write_text('[[repo]]\nname = "on-the-record"\npath = "/x"\n')

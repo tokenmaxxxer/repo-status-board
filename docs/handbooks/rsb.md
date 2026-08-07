@@ -33,6 +33,13 @@ Resolved from `--config`, else `$RSB_CONFIG`, else
 - `--json` — print the normalized merged model instead of rendering.
 - `--no-color` — accepted, currently a no-op (v1 renderer has no ANSI
   color to disable).
+- `--allow-partial` — when some but not all configured repos fail to
+  fetch, exit 0 instead of 1 (issue #58). Without this flag, `rsb`'s
+  exit code reflects `model.errors` being non-empty at all, not just
+  every repo failing — a 1-of-N-repo failure now fails the CI build
+  step by default instead of silently deploying a partial board.
+  An all-repos-failing config still exits 1 regardless of this flag,
+  since there is nothing to publish either way.
 
 ## Tests
 
@@ -86,4 +93,44 @@ GitHub auto-disables a `schedule`-triggered workflow after 60 days with
 no repository activity. If the Pages board stops updating, check the
 Actions tab for a disabled workflow and re-enable it there (or trigger
 `workflow_dispatch` manually) — any repo commit activity also resets the
-60-day clock.
+60-day clock. As of this writing (`pushed_at` 2026-08-04T10:33:16Z) the
+next push-driven reset is needed by roughly **2026-10-03** — a repo
+owner should either push a real change or a deliberate empty commit
+before that date, or the cron silently stops firing with no other
+signal (issue #58 D4). This is a recurring operational reminder, not a
+one-time fix: it needs re-arming every ~60 days regardless.
+
+### Failure notification
+
+Both the `build` and `deploy` jobs in `deploy-board.yml` post to the
+`RSB_ALERT_WEBHOOK` repo secret (a plain JSON-payload webhook URL, e.g.
+Slack's incoming-webhook format) on `if: failure()`, so a red scheduled
+run reaches a channel a human reads instead of only the Actions tab
+(issue #58's "no failure notification" gap). If the secret is unset,
+the notification step logs a message and exits 0 — a missing webhook
+is a silent no-op, not a second failure mode on top of the one it's
+supposed to report.
+
+### Staleness banner
+
+`dashboard.js`'s `staleness(generatedAt, nowIso, thresholdMs)` compares
+the board payload's own `generated_at` to wall clock at render time (no
+server-side flag, no schema change) and returns a non-null
+age-description once the board is more than 45 minutes old — ~1.5x the
+30-minute `deploy-board.yml` cron interval, so one missed run is still
+"fresh" but two in a row trips the banner. `renderData()` shows it as
+an unmissable banner naming the actual age (e.g. "last updated 3h12m
+ago") above the partial-failure banner. Because staleness is computed
+client-side on load, every open tab re-evaluates it on its own clock
+without needing a redeploy.
+
+### Sessions/Accounting panels in CI
+
+`sessions[]`/`ledger[]` in `board.json` are sourced from `on-the-record`'s
+`runs/` directory, which is gitignored there — a CI checkout never has
+it, so these arrays are structurally always empty in the deployed
+board (issue #58 D2). `dashboard.js`'s `renderData()` omits the
+Sessions and Accounting `<section>`s entirely when both are empty,
+rather than rendering tables that would otherwise misread as "nothing
+is running." A local `rsb serve` against a real `runs/` directory still
+renders both sections normally.

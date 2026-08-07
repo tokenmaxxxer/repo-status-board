@@ -60,6 +60,19 @@ jobs:
         with:
           path: _site
 
+      - name: Notify on failure
+        if: failure()
+        env:
+          WEBHOOK_URL: ${{ secrets.RSB_ALERT_WEBHOOK }}
+        run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "RSB_ALERT_WEBHOOK not set; skipping failure notification"
+            exit 0
+          fi
+          curl -fsS -X POST -H "Content-Type: application/json" \
+            -d "{\"text\":\"repo-status-board deploy-board build job failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
+            "$WEBHOOK_URL"
+
   deploy:
     needs: build
     runs-on: ubuntu-latest
@@ -70,3 +83,16 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Notify on failure
+        if: failure()
+        env:
+          WEBHOOK_URL: ${{ secrets.RSB_ALERT_WEBHOOK }}
+        run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "RSB_ALERT_WEBHOOK not set; skipping failure notification"
+            exit 0
+          fi
+          curl -fsS -X POST -H "Content-Type: application/json" \
+            -d "{\"text\":\"repo-status-board deploy-board deploy job failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
+            "$WEBHOOK_URL"
