@@ -258,16 +258,21 @@ def test_row_toggle_reactivating_open_button_closes_it():
 def test_partial_failure_raw_message_absent_from_main_content_and_errors_section_gone():
     payload = _board_payload(
         generated_at_by_repo={"repo-a": "2026-08-03T00:00:00Z"},
+        decisions=[
+            {"issue": 7, "repo": "repo-a", "pr": 101, "phase": "review", "role": "implementation", "awaiting": "approve-full", "age_hours": 5.0},
+        ],
         errors=[{"repo": "repo-b", "message": "internal-path-should-not-leak: /srv/provider/internal.py refused"}],
     )
     result = _run_dom_js(
         """
         const mainContent = document.getElementById("main-content");
+        const bannerDetails = document.querySelector("#partial-banner details");
         console.log(JSON.stringify({
           mainContentHasRawMessage: mainContent.textContent.includes("internal-path-should-not-leak"),
           errorsHeadingExists: Array.from(document.querySelectorAll("h2")).some((h) => h.textContent === "Errors"),
           errorListExists: document.querySelector(".error-list") !== null,
-          bannerHasCollapsedMessage: document.getElementById("partial-banner").innerHTML.includes("internal-path-should-not-leak"),
+          bannerMessageInDetails: bannerDetails !== null && bannerDetails.textContent.includes("internal-path-should-not-leak"),
+          bannerDetailsNotOpen: bannerDetails !== null && !bannerDetails.hasAttribute("open"),
         }));
         """,
         fetch_body=_fetch_ok(payload),
@@ -275,7 +280,8 @@ def test_partial_failure_raw_message_absent_from_main_content_and_errors_section
     assert result["mainContentHasRawMessage"] is False
     assert result["errorsHeadingExists"] is False
     assert result["errorListExists"] is False
-    assert result["bannerHasCollapsedMessage"] is True
+    assert result["bannerMessageInDetails"] is True
+    assert result["bannerDetailsNotOpen"] is True
 
 
 # ---- `load()` fetch path ---------------------------------------------------
