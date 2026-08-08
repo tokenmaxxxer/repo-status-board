@@ -2,7 +2,7 @@
   "name": "rsb-test-harness",
   "private": true,
   "description": "jsdom dependency for dashboard.js DOM-wiring tests (issue #44). Not published; scoped to test/rsb_tests/test_dashboard_dom.py's per-test node subprocesses only.",
-  "dependencies": {
+  "devDependencies": {
     "jsdom": "^30.0.1"
   }
 }

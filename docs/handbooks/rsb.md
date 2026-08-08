@@ -40,12 +40,16 @@ Resolved from `--config`, else `$RSB_CONFIG`, else
 python -m pytest test/
 ```
 
+Requires the `pip install -e .` step from "Install / run" above — run
+without it and collection fails with `ModuleNotFoundError: No module
+named 'rsb'` before any test executes.
+
 No live `spawn.py` dependency — the subprocess boundary
 (`rsb.fetch.run_flows_json`) is mocked via fixture payloads in
 `test/rsb_tests/fixtures.py`, including the worked example from
 `docs/specs/flows-schema.md` §7.
 
-`dashboard.js`'s pure/DOM-free helpers (the `module.exports` list) get
+6 of `dashboard.js`'s 10 pure/DOM-free `module.exports` helpers get
 `node -e` coverage via `test_model.py`'s `_run_dashboard_js`, gated by
 `pytest.skip()` if `node` isn't on `PATH`. Its DOM-wiring layer — event
 listeners, `<select>` population, `load()`'s fetch path — is covered
