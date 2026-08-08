@@ -168,3 +168,36 @@ tried once (a dedicated `#staleness-banner` element) and reverted in
 favor of reusing the existing `#partial-banner` element, staying
 inside the frozen write set — see the proposal's "reusing the existing
 `.partial-banner`-style block" instruction.
+
+## Follow-up (2026-08-08): rebase onto origin/main, PR #61/#62 conflicts
+
+PR #59 was green but had drifted behind `origin/main` (4 vs 34 commits
+apart) after the #61/#62 work landed on `dashboard.js`. Rebased
+`issue-58/implementation` onto `origin/main`; two conflicts in
+`src/rsb/web/dashboard.js`, both in `renderData()`/`applySelectionLayout()`:
+
+1. The Sessions-section-close/`renderErrors(data.errors)` block conflicted
+   with main's own reshuffling of the same region. Resolved by keeping
+   the `showSessionsAndLedger`-gated close and the `renderErrors(...)`
+   call as they stood on this branch.
+2. The `matchMedia` guard (this file's own earlier fix, above) conflicted
+   with an equivalent inline guard added independently on main. Kept
+   this branch's named-variable (`mql`) version — functionally identical.
+
+Conflict (1)'s naive resolution left a call to `renderErrors(...)`, a
+function `origin/main` had since deleted (superseded by the
+partial-banner collapsible-details rendering this branch already
+relies on) — undetected by the merge itself since the conflict markers
+resolved cleanly, only surfacing as a `ReferenceError` inside
+`renderData()`'s try/catch, which silently fell through to
+`renderFullError()` and left `.row-toggle` buttons unrendered. Caught by
+rerunning the full suite: 6 `test_dashboard_dom.py` failures, all
+`Cannot read properties of null` on `.row-toggle` element lookups.
+Fixed by dropping the `renderErrors(data.errors)` call — the Errors
+section it rendered is exactly what `origin/main`'s partial-banner
+change (test `test_partial_failure_raw_message_absent_from_main_content_and_errors_section_gone`)
+already asserts is gone.
+
+Full suite after fix, with `PYTHONPATH=src` (see the shadowing note
+above — still required, an operator-shell issue, not a code defect) and
+`test/node_modules` present: `77 passed, 0 failed, 0 skipped`.

@@ -656,7 +656,6 @@ function renderData(data) {
       ${renderTable(["Repo", "Role", "Issue", "Elapsed", "PID", "Alive", "Last activity"], sessionRows(data.sessions, ownerNameByRepo), "(none)", "Sessions")}
     </section>
     ` : ""}
-    ${renderErrors(data.errors)}
     <section class="region">
       <h2>Hygiene</h2>
       ${renderHygiene(data.closure_sweep, data.unapproved_open_prs)}
