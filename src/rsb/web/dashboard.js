@@ -85,6 +85,23 @@ function selectSummary(data) {
   };
 }
 
+// Self-reported freshness (issue #58 D3) — compares the payload's own
+// `generated_at` to wall clock instead of trusting a green deploy. Pure/
+// DOM-free so it gets `node -e` coverage the same way as the other
+// exported helpers. `thresholdMs` defaults to 45min (~1.5x the 30-min
+// deploy-board.yml cron per issue #58's fix direction #1). Returns `null`
+// when fresh (age <= threshold, so exactly-at-threshold is still fresh);
+// otherwise an age-description object the caller renders into a banner.
+function staleness(generatedAt, nowIso, thresholdMs = 45 * 60 * 1000) {
+  const ageMs = new Date(nowIso).getTime() - new Date(generatedAt).getTime();
+  if (!(ageMs > thresholdMs)) return null;
+  const totalMinutes = Math.floor(ageMs / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const label = hours > 0 ? `${hours}h${minutes}m` : `${minutes}m`;
+  return { ageMs, label };
+}
+
 function isPageEmpty(data) {
   return data.decisions.length === 0
     && data.flows.length === 0
@@ -587,19 +604,26 @@ function renderData(data) {
     .map((s) => `<span class="chip ${s.status}">${escapeHtml(s.label)}</span>`)
     .join("");
 
+  const staleInfo = staleness(data.generated_at, new Date().toISOString());
+  const staleBannerHtml = staleInfo
+    ? `<div class="partial-banner staleness-banner">Board data is stale — last updated ${staleInfo.label} ago</div>`
+    : "";
+
   const failedRepos = data.errors;
+  let partialBannerHtml = "";
   if (failedRepos.length > 0 && Object.keys(data.generated_at_by_repo).length > 0) {
     const total = failedRepos.length + Object.keys(data.generated_at_by_repo).length;
     const detail = failedRepos.map((e) => `${e.repo}: ${e.message}`).join(", ");
-    PARTIAL_BANNER.innerHTML = `
+    partialBannerHtml = `
       <div class="partial-banner">
         ${failedRepos.length} of ${total} repos failed to load — ${collapsibleDetailHtml("Details", detail)}
         <button class="link" id="partial-retry">Retry</button>
       </div>
     `;
+  }
+  PARTIAL_BANNER.innerHTML = `${staleBannerHtml}${partialBannerHtml}`;
+  if (partialBannerHtml) {
     document.getElementById("partial-retry").addEventListener("click", load);
-  } else {
-    PARTIAL_BANNER.innerHTML = "";
   }
 
   if (isPageEmpty(data)) {
@@ -608,6 +632,14 @@ function renderData(data) {
     MAIN.setAttribute("aria-busy", "false");
     return;
   }
+
+  // Sessions/Accounting are structurally always empty when this board is
+  // built in CI (issue #58 D2 — both read from a gitignored `runs/` path
+  // no CI checkout ever has). Rendering an always-empty table reads as
+  // "nothing is running" rather than "this data isn't available here", so
+  // both sections are omitted entirely when both are empty; a local `rsb
+  // serve` with real `runs/` data still renders them as before.
+  const showSessionsAndLedger = data.sessions.length > 0 || data.ledger.length > 0;
 
   MAIN.innerHTML = `
     <section class="region">
@@ -618,18 +650,22 @@ function renderData(data) {
       <h2>Flows</h2>
       ${renderTable(["Repo", "Issue", "Stage", "Plan", "Roles", "PRs"], flowRows(data.flows, ownerNameByRepo), "(none)", "Flows")}
     </section>
+    ${showSessionsAndLedger ? `
     <section class="region">
       <h2>Sessions</h2>
       ${renderTable(["Repo", "Role", "Issue", "Elapsed", "PID", "Alive", "Last activity"], sessionRows(data.sessions, ownerNameByRepo), "(none)", "Sessions")}
     </section>
+    ` : ""}
     <section class="region">
       <h2>Hygiene</h2>
       ${renderHygiene(data.closure_sweep, data.unapproved_open_prs)}
     </section>
+    ${showSessionsAndLedger ? `
     <section class="region accounting-strip">
       <h2>Accounting</h2>
       ${renderAccounting(data.ledger, data.unattributed, ownerNameByRepo)}
     </section>
+    ` : ""}
   `;
   applySelectionLayout(data);
   attachRowToggleHandlers(data);
@@ -670,5 +706,5 @@ if (typeof window !== "undefined") {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { ageBucket, ageBucketStatus, selectSummary, isPageEmpty, buildPlanSteps, filterByRepo, buildGithubUrl, numberLinkHtml, detailRowHtml, collapsibleDetailHtml };
+  module.exports = { ageBucket, ageBucketStatus, selectSummary, isPageEmpty, buildPlanSteps, filterByRepo, buildGithubUrl, numberLinkHtml, detailRowHtml, collapsibleDetailHtml, staleness };
 }

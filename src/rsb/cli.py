@@ -39,6 +39,11 @@ def build_arg_parser():
         metavar="SECONDS",
         help=f"per-repo subprocess timeout in seconds (default {DEFAULT_TIMEOUT_SECONDS})",
     )
+    parser.add_argument(
+        "--allow-partial",
+        action="store_true",
+        help="exit 0 when some (but not all) repos fail to fetch, instead of 1",
+    )
 
     subparsers = parser.add_subparsers(dest="command")
     serve_parser = subparsers.add_parser("serve", help="serve the web dashboard over HTTP")
@@ -63,15 +68,19 @@ def _now_iso():
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
-def _run_once(repo_configs, as_json, timeout):
+def _run_once(repo_configs, as_json, timeout, allow_partial=False):
     model = fetch_board(repo_configs, timeout=timeout)
     generated_at = _now_iso()
     if as_json:
         print(json.dumps(render_json_model(model, generated_at), indent=2))
     else:
         print(render_text(model, generated_at), end="")
+    if not model.errors:
+        return 0
     all_failed = len(repo_configs) > 0 and len(model.errors) == len(repo_configs)
-    return 1 if all_failed else 0
+    if all_failed:
+        return 1
+    return 0 if allow_partial else 1
 
 
 def main(argv=None):
@@ -100,13 +109,13 @@ def main(argv=None):
         try:
             while True:
                 sys.stdout.write(CLEAR_SCREEN)
-                _run_once(repo_configs, as_json=False, timeout=args.timeout)
+                _run_once(repo_configs, as_json=False, timeout=args.timeout, allow_partial=args.allow_partial)
                 sys.stdout.flush()
                 time.sleep(interval)
         except KeyboardInterrupt:
             return 0
 
-    return _run_once(repo_configs, as_json=args.json, timeout=args.timeout)
+    return _run_once(repo_configs, as_json=args.json, timeout=args.timeout, allow_partial=args.allow_partial)
 
 
 if __name__ == "__main__":

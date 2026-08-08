@@ -347,6 +347,34 @@ def test_dashboard_js_detail_row_html_wraps_content_in_a_tr_with_colspan():
     assert result == '<tr class="detail-row" id="detail-row"><td colspan="5"><div>x</div></td></tr>'
 
 
+def test_dashboard_js_staleness_returns_null_when_fresh():
+    # issue #58 D3 — within the 45min default threshold, no staleness.
+    result = _run_dashboard_js(
+        """
+        console.log(JSON.stringify(dashboard.staleness("2026-08-07T00:00:00Z", "2026-08-07T00:10:00Z")));
+        """
+    )
+    assert result is None
+
+
+def test_dashboard_js_staleness_returns_null_exactly_at_threshold():
+    result = _run_dashboard_js(
+        """
+        console.log(JSON.stringify(dashboard.staleness("2026-08-07T00:00:00Z", "2026-08-07T00:45:00Z")));
+        """
+    )
+    assert result is None
+
+
+def test_dashboard_js_staleness_returns_age_label_past_threshold():
+    result = _run_dashboard_js(
+        """
+        console.log(JSON.stringify(dashboard.staleness("2026-08-07T00:00:00Z", "2026-08-07T03:12:00Z")));
+        """
+    )
+    assert result["label"] == "3h12m"
+
+
 def test_dashboard_js_collapsible_detail_html_escapes_summary_and_detail():
     # issue #38 P2-6 — summary line + collapsed <details> so internal
     # paths/messages aren't exposed by default; both arguments are escaped.
