@@ -107,6 +107,21 @@ unless this working tree's `src/` is put first on `sys.path` — worked
 around at test-run time (`sys.path.insert(0, "src")`), noted here for
 the next session running `pytest` directly in this tree.
 
+Follow-up (operator relay on PR #59, 2026-08-08): a local re-run without
+that workaround reported 2 FAILED (both `test_cli.py` partial-failure
+acceptance tests) + 8 skipped. Root-caused, not a code defect: the
+operator's shell had `$PYTHONPATH` pointing at
+`/home/jwjung/tokenmaxxxer/repo-status-board/src` — an older sibling
+checkout without the `--allow-partial` change — ahead of this branch's
+`src/`, so `import rsb` resolved to the stale copy (confirmed via
+`python3 -c "import rsb.cli as c; print(c.__file__)"` and a `diff`
+against this tree's `cli.py`, which showed the sibling missing the
+entire `--allow-partial` plumbing). With `PYTHONPATH` set to point at
+this tree's `src/` first, both tests pass. The 8 skips are unrelated
+and pre-existing (`test_dashboard_dom.py`, from issue-44, gated on
+`npm install --prefix test` for jsdom — not in this issue's write set).
+Full suite: `62 passed, 8 skipped` — no code change made this round.
+
 ## Warrant hunt
 
 Before-landing hunt dispatched
