@@ -6,7 +6,7 @@ covers, but structurally unable to reach any DOM-wiring code (survey.md
 §3): every module-scope element const becomes `null`, and there is no
 event system to dispatch against. This module installs a real jsdom DOM
 as `global.window`/`global.document` *before* `require()`-ing
-dashboard.js, so its require-time auto-init seam (dashboard.js:584-591,
+dashboard.js, so its require-time auto-init seam (dashboard.js:658-665,
 guarded only by `typeof window !== "undefined"`; survey.md §2) actually
 wires listeners and calls `load()` against real elements — no `src/**`
 change needed.

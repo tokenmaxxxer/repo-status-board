@@ -190,19 +190,36 @@ re-litigated here.
 
 ### `_run_dashboard_js` disposition
 
-Kept as-is (`test_model.py`, 8 existing pure-function tests), per the
+Kept as-is (`test_model.py`, 9 existing pure-function tests), per the
 phase-1 proposal's decision — none of those tests read the DOM-element
 consts, so routing them through jsdom would add setup cost for zero
 coverage benefit. The new DOM suite is fully additive in a new file;
-zero regression risk to the existing 8 tests.
+zero regression risk to the existing 9 tests.
 
 ## Verification
 
 - `python -m pytest test/` (run via `PYTHONPATH=src` in this sandbox,
   since the package isn't `pip install -e .`'d into this container's
   Python — an environment-setup detail of this sandbox, not a suite
-  defect): **63 passed**, 0 failed, 0 skipped (`node` v26.5.1 present,
-  `test/node_modules/jsdom` installed). 55 pre-existing + 8 new.
+  defect): **66 collected, 64 passed, 2 failed, 0 skipped** (`node`
+  v26.7.0 present, `test/node_modules/jsdom` installed). 57 pre-existing +
+  9 new. Restates the section below against the merged artifact, per
+  `docs/issue-44/reports/conformance-review.md` Finding 2 (R12a/R12c):
+  this record's original "63 passed, 0 failed … 55 pre-existing + 8 new"
+  described the branch base (`b621082`), not what shipped, since the
+  branch never rebased onto or re-ran against the `f353910` tip it merged
+  on top of. Independently re-measured here rather than copied forward
+  from that review — its own cited "65 collected / 63 passed / 57
+  pre-existing" is itself one commit further stale: `21c2359` (issue-56)
+  landed on a branch that review's measurement predates and added a
+  ninth `test_dashboard_dom.py` test. The 2 failures,
+  `test_row_toggle_click_opens_detail_and_flips_aria_expanded` and
+  `test_row_toggle_reactivating_open_button_closes_it`, are the
+  pre-existing unguarded `window.matchMedia` call `f353910` introduced —
+  attribution already settled in
+  `docs/issue-36/reports/conformance-review.md` Appendix A4 and put
+  outside this issue's judgment by issue #44's own `## Acceptance` note,
+  not a defect in this suite's own 9 tests.
 - Each of the 5 defect/gap-tracing tests re-run individually against its
   pre-fix `dashboard.js` revision, extracted via `git show` (scratch
   files, deleted after use, never committed):
@@ -231,7 +248,10 @@ zero regression risk to the existing 8 tests.
       Verification). Mobile-overflow: intentionally not covered — see
       Open findings below; this is the approved phase-1 scope, not an
       oversight.
-- [x] 기존 pytest 스위트가 계속 통과한다 — 63/63 passed.
+- [x] 기존 pytest 스위트가 계속 통과한다 — 57/57 pre-existing tests pass
+      (66 collected overall: 64 passed, 2 failed; both failures are
+      inside this suite's own new `test_dashboard_dom.py`, not the
+      pre-existing suite — see Verification).
 - [x] 실행 방법이 문서에 기록된다 — `docs/handbooks/rsb.md` "Tests"
       section, updated this phase.
 - [x] 새 런타임 의존성이 생긴다면 그 선택 근거가 record 에 남는다 — see
@@ -257,6 +277,16 @@ zero regression risk to the existing 8 tests.
   rendered overflow at a viewport width would be. This reconciliation
   was flagged in the phase-1 proposal ("Note on the mobile-overflow
   defect") and approved as part of that proposal.
-- No other findings: 63/63 suite tests pass, and all 5
-  defect/gap-tracing tests independently confirmed to fail against
-  their real pre-fix code (see Verification).
+- **Two of this suite's own tests are red on `main`**
+  (`test_row_toggle_click_opens_detail_and_flips_aria_expanded`,
+  `test_row_toggle_reactivating_open_button_closes_it`), both the
+  pre-existing unguarded `window.matchMedia` call `f353910` introduced —
+  attribution already settled in
+  `docs/issue-36/reports/conformance-review.md` Appendix A4, outside this
+  issue's judgment per issue #44's `## Acceptance` note. First reported
+  against this bullet by `docs/issue-44/reports/conformance-review.md`
+  Finding 2 (R12c): the original "No other findings: 63/63 … pass" text
+  here reported this open item as closed.
+- Otherwise no other findings: all 5 defect/gap-tracing tests
+  independently confirmed to fail against their real pre-fix code (see
+  Verification), and the remaining 7 of this suite's 9 tests pass.

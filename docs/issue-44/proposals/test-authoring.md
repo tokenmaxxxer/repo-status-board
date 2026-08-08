@@ -36,12 +36,14 @@ this proposal only; no test code, no `src/**` touch, no
 Full detail: `docs/issue-44/reports/test-authoring/survey.md`. Key
 findings this decision leans on:
 
-- §1: `dashboard.js`'s `module.exports` guard exports exactly 8
-  pure/DOM-free helpers; every DOM-wiring function (`attachRowToggleHandlers`,
-  `updateRepoFilterOptions`, `renderData`, `load`, the browser-only
-  auto-init block) is unexported and untested today.
+- §1: `dashboard.js`'s `module.exports` guard exports exactly 10
+  pure/DOM-free helpers (`f353910` added `detailRowHtml`,
+  `collapsibleDetailHtml` after this bullet was first written); every
+  DOM-wiring function (`attachRowToggleHandlers`, `updateRepoFilterOptions`,
+  `renderData`, `load`, the browser-only auto-init block) is unexported
+  and untested today.
 - §2: the auto-init block's `typeof window !== "undefined"` guard
-  (`dashboard.js:584-591`) is already a usable test seam — if a
+  (`dashboard.js:658-665`) is already a usable test seam — if a
   `window`/`document` pair exists before `require("dashboard.js")` runs,
   requiring the module itself wires both top-level listeners and calls
   `load()` once, with no new export needed.
