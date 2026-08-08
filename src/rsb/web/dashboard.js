@@ -230,10 +230,11 @@ function numberLinkHtml(ownerName, kind, number) {
 // link (never overlapping/nesting it) per scout-brief's must-be: a
 // native <button>, leading position, decorative glyph
 // (`aria-hidden="true"`) that flips with `aria-expanded`, accessible
-// name carried by `aria-label` since the glyph no longer can. Fixed
-// `aria-controls="detail-panel-slot"` — the only detail container this
-// codebase actually renders (issue-36 survey §2; no per-table
-// `detail-row-*` element is ever created).
+// name carried by `aria-label` since the glyph no longer can. Default
+// `aria-controls="detail-panel-slot"` here; applySelectionLayout()
+// overwrites it to `"detail-row"` on the selected button when the
+// narrow (<1200px) layout inserts the panel as a sibling `<tr>` instead
+// (issue-61 F2).
 function rowToggleButtonHtml(sourceTable, issue, repo, expanded) {
   return `<button type="button" class="row-toggle" aria-expanded="${expanded}" aria-controls="detail-panel-slot" aria-label="Toggle details for issue ${issue}" data-issue="${issue}" data-repo="${escapeHtml(repo)}" data-table="${sourceTable}"><span aria-hidden="true">${expanded ? "▾" : "▸"}</span></button>`;
 }
@@ -450,7 +451,7 @@ function renderDetailPanel(data, issue, repo) {
 // `renderDetailPanel(...)` already produced; `colspan` spans every column
 // of the row it's inserted after (P1-3).
 function detailRowHtml(colspan, contentHtml) {
-  return `<tr class="detail-row"><td colspan="${colspan}">${contentHtml}</td></tr>`;
+  return `<tr class="detail-row" id="detail-row"><td colspan="${colspan}">${contentHtml}</td></tr>`;
 }
 
 // Summary-line + collapsed-`<details>` error-detail structure (P2-6) —
@@ -505,11 +506,15 @@ function applySelectionLayout(data) {
   }
 
   const contentHtml = renderDetailPanel(data, selectedIssue.issue, selectedIssue.repo);
-  if (!selectedRow || window.matchMedia(WIDE_LAYOUT_QUERY).matches) {
+  const mql = typeof window.matchMedia === "function" ? window.matchMedia(WIDE_LAYOUT_QUERY) : null;
+  const isWideLayout = mql && typeof mql.matches === "boolean" ? mql.matches : true;
+  if (!selectedRow || isWideLayout) {
     DETAIL_SLOT.innerHTML = contentHtml;
   } else {
     DETAIL_SLOT.innerHTML = "";
     selectedRow.insertAdjacentHTML("afterend", detailRowHtml(selectedRow.children.length, contentHtml));
+    const selectedButton = selectedRow.querySelector(".row-toggle");
+    if (selectedButton) selectedButton.setAttribute("aria-controls", "detail-row");
   }
 }
 
