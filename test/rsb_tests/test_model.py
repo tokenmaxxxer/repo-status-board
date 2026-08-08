@@ -344,7 +344,7 @@ def test_dashboard_js_detail_row_html_wraps_content_in_a_tr_with_colspan():
         console.log(JSON.stringify(dashboard.detailRowHtml(5, "<div>x</div>")));
         """
     )
-    assert result == '<tr class="detail-row"><td colspan="5"><div>x</div></td></tr>'
+    assert result == '<tr class="detail-row" id="detail-row"><td colspan="5"><div>x</div></td></tr>'
 
 
 def test_dashboard_js_collapsible_detail_html_escapes_summary_and_detail():
