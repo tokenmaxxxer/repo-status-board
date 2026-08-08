@@ -3,8 +3,10 @@ import json
 import subprocess
 import time
 
+import pytest
+
 from rsb.config import RepoConfig
-from rsb.fetch import DEFAULT_TIMEOUT_SECONDS, fetch_and_normalize_one, fetch_board
+from rsb.fetch import DEFAULT_TIMEOUT_SECONDS, fetch_and_normalize_one, fetch_board, run_flows_json
 
 from .fixtures import EMPTY_PAYLOAD, WORKED_EXAMPLE
 
@@ -138,6 +140,86 @@ def test_fetch_board_caps_max_workers_at_8(monkeypatch):
     fetch_board(repos, run_json)
 
     assert captured["max_workers"] == 8
+
+
+# ---- internal-path masking (issue #62 R5d) ---------------------------------
+# Traces to docs/issue-38/reports/conformance-review.md R5d: fetch.py's two
+# message-construction sites embedded the launcher's/subprocess's raw
+# internal filesystem paths verbatim; the dashboard collapsed the message
+# behind a closed <details> but never redacted it, so the path was still
+# present in both the rendered HTML and api/board.json. These call
+# run_flows_json directly (no existing test does) with a monkeypatched
+# subprocess.run, asserting a fixture absolute path is absent from the
+# resulting message while the diagnosable portion (strerror / stderr
+# excerpt text) survives.
+
+
+def test_run_flows_json_oserror_masks_internal_path(monkeypatch):
+    fixture_path = "/Users/ci-runner/.secret-checkout/spawn.py"
+
+    def fake_run(argv, **kwargs):
+        raise FileNotFoundError(2, "No such file or directory", fixture_path)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    repo = RepoConfig(name="broken-exe", path="/x", command=[fixture_path])
+
+    with pytest.raises(RuntimeError) as exc_info:
+        run_flows_json(repo)
+
+    message = str(exc_info.value)
+    assert fixture_path not in message
+    assert "No such file or directory" in message
+
+
+def test_run_flows_json_nonzero_exit_masks_internal_path(monkeypatch):
+    fixture_path = "/Users/ci-runner/.secret-checkout/repo"
+
+    class FakeCompleted:
+        returncode = 1
+        stdout = ""
+        stderr = "Traceback (most recent call last):\nFileNotFoundError: %s/flows.json not found\n" % fixture_path
+
+    def fake_run(argv, **kwargs):
+        return FakeCompleted()
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    repo = RepoConfig(name="broken-flows", path="/x", command=["python", "spawn.py"])
+
+    with pytest.raises(RuntimeError) as exc_info:
+        run_flows_json(repo)
+
+    message = str(exc_info.value)
+    assert fixture_path not in message
+    assert "not found" in message
+
+
+def test_run_flows_json_nonzero_exit_masks_internal_path_with_spaces(monkeypatch):
+    # before-landing warrant hunt (docs/reports/2026-08-08-hunt-issue-62-implementation.md):
+    # a whitespace-free-token-only regex leaves a directory name containing
+    # a space (e.g. a macOS "Jane Doe" home dir) only partially redacted.
+    fixture_path = "/Users/Jane Doe/.secret-checkout/repo"
+
+    class FakeCompleted:
+        returncode = 1
+        stdout = ""
+        stderr = "Traceback (most recent call last):\nFileNotFoundError: %s/flows.json not found\n" % fixture_path
+
+    def fake_run(argv, **kwargs):
+        return FakeCompleted()
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    repo = RepoConfig(name="broken-flows-spaced", path="/x", command=["python", "spawn.py"])
+
+    with pytest.raises(RuntimeError) as exc_info:
+        run_flows_json(repo)
+
+    message = str(exc_info.value)
+    assert fixture_path not in message
+    assert ".secret-checkout" not in message
+    assert "not found" in message
 
 
 def test_fetch_board_real_path_threads_timeout_through(monkeypatch):

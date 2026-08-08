@@ -72,6 +72,25 @@ structure); previously `neutral-300` on `neutral-0` ≈ 1.47:1, below
 that floor. Reuses the already-defined `neutral-500` primitive, no new
 token added.
 
+Issue #62 adds a hover-immune selected-row accent (`tr.selected-row
+td:first-child { box-shadow: inset 3px 0 0 0
+var(--color-status-info-border) }`) after finding the row's existing
+`color-status-info-background` tint fails 3:1 as a background (≈1.09:1
+against `color-surface-raised`'s `#ffffff`, ≈1.01:1 against
+`tr:hover`'s `color-neutral-100`) and loses to `tr:hover` on CSS
+specificity outright. `color-status-info-border` (= `color-blue-500`,
+`#2563eb`) recomputes at ≈5.17:1 against `#ffffff`, ≈4.70:1 against
+`color-neutral-100` (`#f3f4f6`), ≈4.75:1 against the row's own
+`color-status-info-background` tint (`#eff6ff`) — all clear the 3:1
+floor. No existing `--color-status-*-background`/`--color-neutral-100/
+300` token reaches 3:1 as a background against white (they're
+deliberately light tints for chip/badge fills, §2.3), so the accent
+reuses a border-weight token as a `box-shadow`, the same idiom
+`.hygiene-list li`/`.error-list li` already use as a `border-left`
+(`dashboard.css:349-350`); `box-shadow` doesn't compete with
+`tr:hover`'s `background` declaration, so no specificity fix is needed.
+The background tint stays as a secondary cue, not the sole indicator.
+
 ### 2.3 Semantic — status (drives age buckets, badges, hygiene, errors)
 
 Five statuses, each a background/foreground pair plus a border for use
@@ -167,7 +186,16 @@ still out of scope — this is overflow-prevention plus touch-target
 sizing, not a redesign. Issue #56 extends the same 24×24px minimum to
 `.number-link` (the `#<n>` issue/PR link) after determining WCAG
 2.5.8's inline-text exception does not apply to it — see the
-`DataTable` row below.
+`DataTable` row below. Issue #62 extends it further to `#partial-retry`
+(the `PartialFailureBanner`'s Retry link/button, `min-width`/
+`min-height`/`inline-flex` like `.row-toggle`/`.number-link`) and to the
+two `<summary>` disclosure controls (`.partial-banner summary`,
+`.error-state details summary`) — the latter via `min-height` only,
+since the review's own finding already established their horizontal
+axis passes (full-width block) and only the vertical axis fails;
+`display` stays at `<summary>`'s default `list-item` because switching
+to `flex`/`inline-flex` would drop the native disclosure triangle in
+Chrome/Firefox.
 
 ## 6. Component inventory
 
@@ -179,7 +207,7 @@ Named here, applied per-region in `docs/specs/screen-spec.md`.
 | `RefreshButton` | `color-action-primary-*`, `:hover` (`blue-700`)/`:focus-visible` (`blue-500` outline)/`:disabled` (0.5 opacity, disabled while a load is in flight — issue #38 P2-5/P3-8), 24×24px minimum size |
 | `RepoFilter` | native `<select>`, `font-size-body` (issue #29 requirement 2 — client-side filter over an already-fetched payload, no refetch); `color-border-default` border, `:focus-visible` (`blue-500` outline), 24×24px minimum size (issue #38 P2-5) |
 | `SummaryChip` | `status-*` pair matching its metric, `font-size-300` |
-| `DataTable` | `space-table-cell-padding-*`, `font-size-body`, `color-border-default`, `color-surface-raised`, `min-width: 640px` (issue #38 P1-1), visually-hidden `<caption>` + `th[scope=col]` (issue #38 P2-7), `tr:hover` (`neutral-100`)/`tr.selected-row` (`status-info-background`) row states (issue #38 P2-7/P3-8). Issue/PR cells: leading icon-only `row-toggle` disclosure button (▸/▾, no color token — inherits text color, 24×24px minimum size per issue #38 P2-5) + trailing `#<n>` link (`.number-link`, `color-action-primary-background`, issue #36, 24×24px minimum size per issue #56 F3) |
+| `DataTable` | `space-table-cell-padding-*`, `font-size-body`, `color-border-default`, `color-surface-raised`, `min-width: 640px` (issue #38 P1-1), visually-hidden `<caption>` + `th[scope=col]` (issue #38 P2-7), `tr:hover` (`neutral-100`)/`tr.selected-row` (`status-info-background` fill + `status-info-border` inset `box-shadow` accent on the first cell, issue #62 R6d — the fill alone doesn't clear 3:1 contrast and loses to `tr:hover` on specificity, see §2.2) row states (issue #38 P2-7/P3-8). Issue/PR cells: leading icon-only `row-toggle` disclosure button (▸/▾, no color token — inherits text color, 24×24px minimum size per issue #38 P2-5) + trailing `#<n>` link (`.number-link`, `color-action-primary-background`, issue #36, 24×24px minimum size per issue #56 F3) |
 | `AgeBucketBadge` | `status-neutral/warning/error` per §2.4 |
 | `RoleChip` | `status-neutral`, `font-family-mono` |
 | `AliveBadge` | `status-success/neutral` per §2.4 |
@@ -189,8 +217,8 @@ Named here, applied per-region in `docs/specs/screen-spec.md`.
 | `ErrorListItem` | `status-error` |
 | `SkeletonBlock` | `color-neutral-100/300` (no motion token — static or CSS-default pulse, implementation's call); `.skeleton-row` height now matches a real data row's computed height (`space-table-cell-padding-y` × 2 + line-height, issue #38 P3-8) instead of a fixed `2em` guess |
 | `EmptyStateMessage` | `color-text-secondary`, `font-size-body` |
-| `ErrorState` (full-page) | `status-error`, `font-size-heading`, now an `<h2>` (not `<h1>` — the page's own `<h1>` stays the document's only one, issue #38 P2-6); `role="alert"`; summary line + collapsed `<details>` holding the raw provider/backend message (issue #38 P2-6) |
-| `PartialFailureBanner` | `status-warning`; `aria-live="polite"` static on `#partial-banner` (issue #38 P1-4) |
+| `ErrorState` (full-page) | `status-error`, `font-size-heading`, now an `<h2>` (not `<h1>` — the page's own `<h1>` stays the document's only one, issue #38 P2-6); `role="alert"`; summary line + collapsed `<details>` holding the provider/backend message, internal filesystem paths masked at generation in `fetch.py` rather than merely collapsed (issue #38 P2-6, issue #62 R5d); its `<summary>` control 24×24px minimum size (issue #62 R4e2) |
+| `PartialFailureBanner` | `status-warning`; `aria-live="polite"` static on `#partial-banner` (issue #38 P1-4); Retry link/button (`#partial-retry`) and its `<summary>` control both 24×24px minimum size (issue #62 R4e/R4e2) |
 
 `PartialFailureBanner` note (issue #29/#38): the approved issue-29
 proposal called for collapsing the per-repo `"{repo}: {message}"` detail
