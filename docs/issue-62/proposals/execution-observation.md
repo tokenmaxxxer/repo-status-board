@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: landed
 files:
   - docs/issue-62/reports/execution-observation/survey.md
   - docs/issue-62/reports/execution-observation/scout-brief.md
@@ -275,6 +275,15 @@ that skip is stated in the hunt record rather than left silent.
 
 ## What did not work
 
+- Phase 2's repository-precedent probes (`status:` frontmatter census,
+  `Proposal:` trailer census) were first run as `git grep ... main --
+  docs` and returned nothing at all. Expected: the local `main` ref
+  contains PR #64's merge. What happened: this sandbox's `main` is stale
+  — `git show main:docs/issue-62/proposals/implementation.md` fails with
+  "exists on disk, but not in 'main'" — so every precedent scan had to be
+  pinned to the merge SHA `8060c5a` instead. Any later session doing
+  repository-wide precedent checks here should pin to a SHA, never to
+  `main`.
 - The scout brief's first Gap line asserted that "three of the four
   must-bes are already practiced by the *observed* role's own
   artifacts". Expected: a gap line describes the deliverable's own
@@ -288,9 +297,12 @@ that skip is stated in the hunt record rather than left silent.
 
 ## Status
 
-Proposed, awaiting approval. Phase 2 — the record at
-`docs/issue-62/reports/execution-observation.md` and the three levels it
-carries — does not begin until an approval lands per contract v3 s19.
+Landed. Approval arrived as issue comment id `5224363688` — body
+`APPROVE issue-62/execution-observation`, `jjongkwann`,
+2026-08-08T03:49:59Z, single-account mode per contract v3 s19 — and
+phase 2's record at `docs/issue-62/reports/execution-observation.md`
+carries the three levels, its findings, and its declared scope
+limitations.
 
 ## Sources
 
