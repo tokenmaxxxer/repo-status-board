@@ -68,6 +68,18 @@ statement, a verification method, and a verification condition, and a
 traceability matrix will link each ID back to R5a/O7 and forward to
 `test/rsb_tests/test_dashboard_dom.py`.
 
+**Selector-scoping constraint (found by the after-proposal hunt, folded in
+before landing):** the verification method must assert the declarations
+against their specific selectors (e.g. parse `dashboard.css` and check the
+`min-width: 0` declaration inside the `#main-content, #detail-panel-slot`
+rule block specifically, and `overflow-x: auto` inside `.table-scroll`
+specifically), not a plain substring search over the whole stylesheet —
+a substring match would still pass if the same declaration text existed
+on an unrelated, ineffective selector while the real regression (grid
+item's default `min-width: auto` pulling the page into overflow) was
+reintroduced. Phase 2's requirement statement and verification method
+must state this scoping explicitly.
+
 ## Out of scope
 
 - Writing or editing the test itself (`test/**` is not this role's
