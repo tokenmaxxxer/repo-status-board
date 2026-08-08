@@ -122,6 +122,27 @@ and pre-existing (`test_dashboard_dom.py`, from issue-44, gated on
 `npm install --prefix test` for jsdom — not in this issue's write set).
 Full suite: `62 passed, 8 skipped` — no code change made this round.
 
+Follow-up (2026-08-08): with `npm install --prefix test` run, the 8
+previously-skipped `test_dashboard_dom.py` tests activated and 2 failed
+(`test_row_toggle_click_opens_detail_and_flips_aria_expanded` and,
+transitively, the same root cause would have hit
+`test_row_toggle_reactivating_open_button_closes_it` had the first not
+masked it). Root cause: `applySelectionLayout()`
+(`src/rsb/web/dashboard.js`) called `window.matchMedia(WIDE_LAYOUT_QUERY)`
+unconditionally to pick the wide-vs-narrow detail-panel render path;
+jsdom's default `JSDOM` config (used by the new DOM test harness) does
+not implement `window.matchMedia` at all, so the call threw mid-render,
+leaving `DETAIL_SLOT` populated from before the click instead of the
+new panel content. Fixed by guarding the call:
+`typeof window.matchMedia !== "function" || window.matchMedia(...).matches`
+— environments without `matchMedia` now default to the wide/side-panel
+layout (the primary, `DETAIL_SLOT`-based path) rather than crashing.
+`test/rsb_tests/test_dashboard_dom.py` needed no change. Full suite with
+jsdom installed: `70 passed` for the Python-visible run (`test_cli.py`'s
+2 partial-failure tests still need the `PYTHONPATH` workaround above,
+unrelated to this fix); `test/rsb_tests/test_dashboard_dom.py` alone:
+`8 passed, 0 skipped`.
+
 ## Warrant hunt
 
 Before-landing hunt dispatched
