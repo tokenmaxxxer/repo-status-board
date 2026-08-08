@@ -28,10 +28,12 @@ every element and structurally cannot reach any DOM-wiring code.
 - **`test/package.json`** (new) — declares `jsdom` (`^30.0.1`) as the
   sole dependency. `npm install --prefix test` installs
   `test/node_modules/` (38 packages).
-- **`test/rsb_tests/test_dashboard_dom.py`** (new) — 8 pytest test
-  functions covering repo-filter population (3), row-toggle click wiring
-  (4), and `load()`'s fetch path (1). Full architecture, fixture
-  strategy, technique citation, and traceability below.
+- **`test/rsb_tests/test_dashboard_dom.py`** (new) — now holds 9 pytest
+  test functions; 8 of them authored by this role, covering repo-filter
+  population (3), row-toggle click wiring (4), and `load()`'s fetch path
+  (1). The 9th was added later by an unrelated commit (issue-56) and is
+  out of this role's scope. Full architecture, fixture strategy,
+  technique citation, and traceability below.
 - **`docs/handbooks/rsb.md`** — "Tests" section now documents the
   `npm install --prefix test` one-time prerequisite (skip-gated, same
   convention as the pre-existing implicit `node` prerequisite) and
@@ -160,7 +162,7 @@ against.
 - **Fragile Test / Interacting Tests** — avoided: one subprocess per
   test, no shared mutable state crosses a test boundary.
 - **Slow Tests** — present but accepted: jsdom startup + `node` process
-  spawn costs roughly 0.5s/test observed (8 tests, ~5s total against 63
+  spawn costs roughly 0.5s/test observed (8 tests, ~5s total against 66
   total suite tests in ~7s). This is the explicit trade the phase-1
   proposal already made (jsdom over browser automation, in-process DOM
   over layout-capable rendering) and is not revisited here.
@@ -171,7 +173,9 @@ against.
 - **Test Code Duplication** — the per-test JS click/query snippets are
   short (2-6 lines) and each encodes a genuinely distinct assertion
   path; a further helper-extraction layer was judged to cost more in
-  indirection than it saves in line count at today's 8-test scale.
+  indirection than it saves in line count at today's 8-test scale (this
+  role's authored tests; the file also carries a 9th, unrelated test
+  added later that is out of this scope).
 - **Conditional Test Logic** — none inside any test function; the only
   branching is the two `pytest.skip()` environment gates inside the
   shared helper (missing `node`, missing `jsdom`), mirroring
