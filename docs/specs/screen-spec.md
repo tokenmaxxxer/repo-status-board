@@ -58,7 +58,10 @@ background, `font-family-base` for all text unless noted.
   §2.4 bucket rule: `fresh` <4h → `status-neutral`, `aging` 4–24h →
   `status-warning`, `stale` ≥24h → `status-error`.
 - Issue cell renders a leading icon-only `<button class="row-toggle">`
-  (▸/▾ glyph, `aria-expanded`, `aria-controls="detail-panel-slot"`,
+  (▸/▾ glyph, `aria-expanded`, `aria-controls="detail-panel-slot"` by
+  default (wide layout, or narrow with no selection), updated to
+  `"detail-row"` when the narrow (<1200px) layout has that row's panel
+  expanded as a sibling `<tr>` (§1.6),
   `aria-label="Toggle details for issue {n}"` — issue #23
   execution-observation finding; issue #29 requirement 5; relocated to
   this leading-button-only form by issue #36) followed by the issue
@@ -109,6 +112,11 @@ background, `font-family-base` for all text unless noted.
   panel content is inserted as a `<tr><td colspan="N">` immediately
   after the selected row instead of into the side-panel slot, which
   stays empty at that width.
+- In that narrow-layout branch, the inserted `<tr class="detail-row">`
+  carries `id="detail-row"`, and the selected row's `row-toggle`
+  button's `aria-controls` is updated to point at it instead of the
+  default `"detail-panel-slot"` (§1.3), so the IDREF always resolves to
+  the panel actually rendered on screen.
 - Internal spacing: `space-4` between the four sub-sections (decision
   row, flow row, session rows, ledger entry).
 - Landmark/heading: the panel is `role="region"

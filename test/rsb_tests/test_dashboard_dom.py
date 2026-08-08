@@ -260,6 +260,30 @@ def test_row_toggle_reactivating_open_button_closes_it():
     assert result["detailHasContent"] is False
 
 
+def test_row_toggle_narrow_layout_aria_controls_resolves_to_detail_row():
+    result = _run_dom_js(
+        """
+        window.matchMedia = () => ({ matches: false });
+        const decBtn = document.querySelector('.row-toggle[data-table="decisions"][data-issue="7"]');
+        decBtn.click();
+        const button = document.querySelector('.row-toggle[data-table="decisions"][data-issue="7"]');
+        const ariaControls = button.getAttribute("aria-controls");
+        const resolved = document.getElementById(ariaControls);
+        console.log(JSON.stringify({
+          detailSlotEmpty: document.getElementById("detail-panel-slot").innerHTML.trim().length === 0,
+          detailRowExists: document.getElementById("detail-row") !== null,
+          ariaControls,
+          resolvedId: resolved ? resolved.id : null,
+        }));
+        """,
+        fetch_body=_fetch_ok(_ROWS_PAYLOAD),
+    )
+    assert result["detailSlotEmpty"] is True
+    assert result["detailRowExists"] is True
+    assert result["ariaControls"] == "detail-row"
+    assert result["resolvedId"] == "detail-row"
+
+
 # ---- partial-failure error surface (issue #56 F1) -------------------------
 # Traces to issue #38 execution-observation F1's root cause (
 # docs/issue-38/reports/execution-observation.md): the prior partial-failure
