@@ -38,3 +38,12 @@ The substring/plain-text check the proposal describes as "achievable today" (lin
 
 ### Expected
 A test intended to stand in for the excluded visual-regression check should fail whenever the declaration is not bound to the selector(s) the fix actually depends on (`#main-content`, `#detail-panel-slot`, `.table-scroll`) — e.g. by parsing the stylesheet into rules and checking the declaration block for the specific selector, not by testing for the bare presence of the property/value text anywhere in the file. The proposal never specifies selector-scoped parsing; as written it leaves room for an assertion that is trivially satisfiable without the underlying layout fix being present.
+
+## before-landing — docs-only fast path
+
+No before-landing dispatch. Reason: docs-only, no before-landing dispatch —
+the phase-2 transition (`be02a70`/proposal commit → `a5a16b9`) touches only
+`docs/issue-72/reports/requirements-engineering.md` (140 insertions, 1
+file, all under `docs/`). Stance-0's after-proposal finding (selector-
+scoping bypass) was folded into REQ-72-2 and REQ-72-3's `verification_method`
+and Given/When/Then lines in the landed record before this commit.
