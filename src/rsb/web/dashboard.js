@@ -352,18 +352,6 @@ function renderHygiene(closureSweep, unapprovedPrs) {
   return `<ul class="hygiene-list">${items.join("")}</ul>`;
 }
 
-function renderErrors(errors) {
-  if (errors.length === 0) return "";
-  return `
-    <section class="region">
-      <h2>Errors</h2>
-      <ul class="error-list">
-        ${errors.map((e) => `<li>${escapeHtml(e.repo)}: ${escapeHtml(e.message)}</li>`).join("")}
-      </ul>
-    </section>
-  `;
-}
-
 // Pure (no-DOM) plan-step builder for the detail panel — kept separate
 // from renderPlanSection() so it can be exercised directly (see
 // test/rsb_tests/test_model.py) without a browser/DOM. Joins each step's
@@ -629,7 +617,6 @@ function renderData(data) {
       <h2>Sessions</h2>
       ${renderTable(["Repo", "Role", "Issue", "Elapsed", "PID", "Alive", "Last activity"], sessionRows(data.sessions, ownerNameByRepo), "(none)", "Sessions")}
     </section>
-    ${renderErrors(data.errors)}
     <section class="region">
       <h2>Hygiene</h2>
       ${renderHygiene(data.closure_sweep, data.unapproved_open_prs)}

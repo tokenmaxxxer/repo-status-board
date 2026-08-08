@@ -248,6 +248,15 @@ tr.selected-row {
 .number-link {
   color: var(--color-action-primary-background);
   text-decoration: none;
+  /* issue-56 F3: WCAG 2.5.8's inline-text exception does not apply — no
+     prose surrounds this link in either DOM context it appears in
+     (.issue-cell, .mono) — so it needs the same 24x24px guarantee
+     .row-toggle already carries (dashboard.css:220-227). */
+  min-width: 24px;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .number-link:hover,
 .number-link:focus {

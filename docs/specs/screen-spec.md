@@ -140,11 +140,6 @@ background, `font-family-base` for all text unless noted.
 - Counted into the summary strip's "hygiene issues" chip (§1.2).
 - Region-empty: `EmptyStateMessage` "No hygiene issues".
 
-### 1.9 Errors panel — `ErrorListItem`
-
-- Only rendered when non-empty. `status-error` marker, `font-size-body`
-  "{repo}: {message}" per line.
-
 ## 2. States
 
 ### 2.1 Page-level Loading
@@ -214,6 +209,11 @@ background, `font-family-base` for all text unless noted.
   pairing fails contrast on the tint — both pass per design-system.md
   §2.3's listed ratios, no fallback needed in practice).
 - Rest of the screen renders normally with succeeded repos' data.
+- This banner is the only surface that displays partial-failure repo
+  errors (issue #56 F1) — the former standalone "Errors panel" section
+  duplicated the exact same `{repo}: {message}` pairs, always-visible
+  and un-collapsed, and has been removed rather than kept as a second
+  display of the same data.
 
 ### 2.6 Detail panel states
 
