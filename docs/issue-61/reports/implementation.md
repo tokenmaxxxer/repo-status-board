@@ -1,5 +1,5 @@
 ---
-code_under_review: src/rsb/web/dashboard.js, test/rsb_tests/test_dashboard_dom.py, docs/specs/screen-spec.md
+code_under_review: src/rsb/web/dashboard.js, test/rsb_tests/test_dashboard_dom.py, docs/specs/screen-spec.md, test/rsb_tests/test_model.py
 loop_state: landed
 ---
 
@@ -161,6 +161,27 @@ is the next proposal's write set.
      `test/rsb_tests/test_model.py` (single-line expected-string update
      to include `id="detail-row"`) — no design decision involved, purely
      mechanical.
+   - **RESOLVED** (later entry, contract s19, approval already on the
+     issue): see "Later entry — test_model.py fix" below.
+
+## Later entry — `test_model.py` fix (contract s19)
+
+Closes open finding 1 above. Single-line mechanical update, no design
+decision: `test/rsb_tests/test_model.py:347`
+(`test_dashboard_js_detail_row_html_wraps_content_in_a_tr_with_colspan`)
+expected string changed from
+`'<tr class="detail-row"><td colspan="5"><div>x</div></td></tr>'` to
+`'<tr class="detail-row" id="detail-row"><td colspan="5"><div>x</div></td></tr>'`,
+matching `detailRowHtml`'s already-delivered, already-approved output
+(item 2 of "What was done" above). No other line in the file changed.
+
+Full suite: `python3 -c "import sys; sys.path.insert(0,'src'); import
+pytest; sys.exit(pytest.main(['test/','-q']))"` → **67 passed, 0
+failed** (66 pre-existing + this issue's own new
+`test_dashboard_dom.py` case, per "Red-green" above). Matches the
+approved proposal's "How you'll know it worked" full-suite-green target
+that "Rationale for deviations" recorded as unmet at the prior
+delivery.
 
 ## Warrant hunt (before phase-2 completion)
 
