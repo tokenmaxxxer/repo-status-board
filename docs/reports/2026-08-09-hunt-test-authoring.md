@@ -58,3 +58,25 @@ proposal write should have been refused/flagged until the skip record was
 present in survey.md, or the adr-proposal-shape gate (the only automated
 check that runs at proposal-write time) should validate survey.md's
 content for the mandated skip record, not merely the file's existence.
+
+## before-landing — stance 1: assume this change and another plugin's rule cancel each other — find the pair
+
+Verdict: NO FINDING
+Seed: test/rsb_tests/test_dashboard_dom.py new REQ-72-1..3 tests (+85 lines)
+cap_seconds: 120
+tier: default
+diff_stat_lines: 85
+started_at: 2026-08-09T00:00:00Z
+ended_at: 2026-08-09T00:05:00Z
+
+Checked whether the new CSSOM rule-lookup tests (sheet.cssRules.find(r => r.selectorText === ...))
+violate the "not a whole-file substring search" constraint stated in the
+REQ-72 requirements record, or collide with any other repo-wide gate
+(searched for conftest.py, CI configs, lint scripts referencing
+test_dashboard_dom.py, cssRules, or styleSheets -- none exist). The
+selectors used (.table-scroll, #main-content plus #detail-panel-slot) match
+src/rsb/web/dashboard.css exactly (lines 219, 412-413), and the two rule-
+lookup tests correctly pass html=_dashboard_html_with_css() so styleSheets
+is populated. Ran `python3 -m pytest test/rsb_tests/test_dashboard_dom.py -k req_72 -q`
+-- all 3 pass. No sibling rule or plugin was found that this change silently
+cancels.

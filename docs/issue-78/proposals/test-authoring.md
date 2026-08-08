@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: landed
 files:
   - test/rsb_tests/test_dashboard_dom.py
 ---
@@ -108,7 +108,12 @@ via `grep -r "REQ-72-" test/`.
 
 ## What did not work
 
-(none yet — appended live during phase 2 if anything breaks)
+- Initial `_REQ72_PAYLOAD` used wrong field names for `sessions`
+  (`elapsed_hours`) and `ledger` (`cost`/string `outcomes`); fixed to
+  `elapsed_min` / `cost_usd_total` / dict `outcomes` to match
+  `sessionRows`/`renderAccounting`.
+- `min-width: 0` assertion needed to accept jsdom's `"0px"` normalization
+  alongside `"0"`.
 
 ## Sources
 

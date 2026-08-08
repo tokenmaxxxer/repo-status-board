@@ -380,3 +380,88 @@ def test_load_fetches_relative_board_json_path():
         fetch_body=_fetch_ok(_board_payload()),
     )
     assert result["fetchCalls"] == ["api/board.json"]
+
+
+# ---- REQ-72-1..3: mobile table-overflow, non-visual formulation ----------
+# Traces to docs/issue-72/reports/requirements-engineering.md. REQ-72-1
+# (DOM): every dashboard table's `.data-table` has a `.table-scroll`
+# parent, checked across all four tables in one payload (the requirement
+# text's own boundary: "present for all four dashboard tables"). REQ-72-2/3
+# (CSS declaration, selector-scoped): CSSOM rule lookup against the named
+# selector's own parsed rule, per the Given/When/Then's explicit
+# not-a-whole-file-substring-search technique.
+
+_REQ72_PAYLOAD = _board_payload(
+    generated_at_by_repo={"repo-a": "2026-08-03T00:00:00Z"},
+    owner_name_by_repo={"repo-a": "Repo A"},
+    decisions=[
+        {"issue": 7, "repo": "repo-a", "pr": 101, "phase": "review", "role": "implementation", "awaiting": "approve-full", "age_hours": 5.0},
+    ],
+    flows=[
+        {"issue": 7, "repo": "repo-a", "stage": "implementing", "stage_derived": True, "plan": None, "roles": [], "prs": []},
+    ],
+    sessions=[
+        {"repo": "repo-a", "role": "implementation", "issue": 7, "elapsed_min": 60.0, "pid": 123, "alive": True, "last_activity": "2026-08-03T00:00:00Z"},
+    ],
+    ledger=[
+        {"repo": "repo-a", "issue": 7, "sessions": 1, "cost_usd_total": 1.0, "outcomes": {"merged": 1}},
+    ],
+)
+
+
+def test_req_72_1_all_four_dashboard_tables_have_table_scroll_parent():
+    """REQ-72-1: `.table-scroll` wraps `.data-table` for all four tables."""
+    result = _run_dom_js(
+        """
+        const tables = Array.from(document.querySelectorAll("main .data-table"));
+        console.log(JSON.stringify({
+          tableCount: tables.length,
+          allWrapped: tables.every((t) => t.parentElement.classList.contains("table-scroll")),
+        }));
+        """,
+        fetch_body=_fetch_ok(_REQ72_PAYLOAD),
+    )
+    assert result["tableCount"] == 4
+    assert result["allWrapped"] is True
+
+
+def test_req_72_2_table_scroll_rule_declares_overflow_x_auto():
+    """REQ-72-2: `.table-scroll`'s own CSS rule declares `overflow-x: auto`
+    (CSSOM lookup scoped to that selector's rule block, not a substring
+    search)."""
+    result = _run_dom_js(
+        """
+        const sheet = document.styleSheets[0];
+        const rule = Array.from(sheet.cssRules).find((r) => r.selectorText === ".table-scroll");
+        console.log(JSON.stringify({
+          ruleFound: rule !== undefined,
+          overflowX: rule ? rule.style.getPropertyValue("overflow-x") : null,
+        }));
+        """,
+        fetch_body=_fetch_ok(_REQ72_PAYLOAD),
+        html=_dashboard_html_with_css(),
+    )
+    assert result["ruleFound"] is True
+    assert result["overflowX"] == "auto"
+
+
+def test_req_72_3_main_content_and_detail_panel_slot_rule_declares_min_width_zero():
+    """REQ-72-3: the `#main-content, #detail-panel-slot` grid-item rule
+    declares `min-width: 0` (CSSOM lookup scoped to that selector's rule
+    block, not a substring search)."""
+    result = _run_dom_js(
+        """
+        const sheet = document.styleSheets[0];
+        const rule = Array.from(sheet.cssRules).find(
+          (r) => r.selectorText === "#main-content, #detail-panel-slot"
+        );
+        console.log(JSON.stringify({
+          ruleFound: rule !== undefined,
+          minWidth: rule ? rule.style.getPropertyValue("min-width") : null,
+        }));
+        """,
+        fetch_body=_fetch_ok(_REQ72_PAYLOAD),
+        html=_dashboard_html_with_css(),
+    )
+    assert result["ruleFound"] is True
+    assert result["minWidth"] in ("0", "0px")
