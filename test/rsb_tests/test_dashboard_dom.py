@@ -245,6 +245,39 @@ def test_row_toggle_reactivating_open_button_closes_it():
     assert result["detailHasContent"] is False
 
 
+# ---- partial-failure error surface (issue #56 F1) -------------------------
+# Traces to issue #38 execution-observation F1's root cause (
+# docs/issue-38/reports/execution-observation.md): the prior partial-failure
+# assertion was scoped to the banner element alone, so it missed that a
+# second, always-visible surface (`renderErrors`, since removed) rendered
+# the same raw per-repo message elsewhere in #main-content. The assertion
+# below is document-scoped to #main-content itself (not to any one child
+# element within it) so a regression anywhere inside it would be caught.
+
+
+def test_partial_failure_raw_message_absent_from_main_content_and_errors_section_gone():
+    payload = _board_payload(
+        generated_at_by_repo={"repo-a": "2026-08-03T00:00:00Z"},
+        errors=[{"repo": "repo-b", "message": "internal-path-should-not-leak: /srv/provider/internal.py refused"}],
+    )
+    result = _run_dom_js(
+        """
+        const mainContent = document.getElementById("main-content");
+        console.log(JSON.stringify({
+          mainContentHasRawMessage: mainContent.textContent.includes("internal-path-should-not-leak"),
+          errorsHeadingExists: Array.from(document.querySelectorAll("h2")).some((h) => h.textContent === "Errors"),
+          errorListExists: document.querySelector(".error-list") !== null,
+          bannerHasCollapsedMessage: document.getElementById("partial-banner").innerHTML.includes("internal-path-should-not-leak"),
+        }));
+        """,
+        fetch_body=_fetch_ok(payload),
+    )
+    assert result["mainContentHasRawMessage"] is False
+    assert result["errorsHeadingExists"] is False
+    assert result["errorListExists"] is False
+    assert result["bannerHasCollapsedMessage"] is True
+
+
 # ---- `load()` fetch path ---------------------------------------------------
 # Traces to the Absent-coverage gap (issue #27 conformance-review): no
 # test called load() under any path, so a regression to an absolute or

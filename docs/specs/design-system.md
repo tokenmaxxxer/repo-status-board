@@ -164,7 +164,10 @@ post-scroll box), and every interactive control (`row-toggle`,
 `repo-filter`, `refresh-button`) now guarantees a 24×24px minimum touch
 target. Full responsive/mobile optimization (e.g. a card layout) is
 still out of scope — this is overflow-prevention plus touch-target
-sizing, not a redesign.
+sizing, not a redesign. Issue #56 extends the same 24×24px minimum to
+`.number-link` (the `#<n>` issue/PR link) after determining WCAG
+2.5.8's inline-text exception does not apply to it — see the
+`DataTable` row below.
 
 ## 6. Component inventory
 
@@ -176,7 +179,7 @@ Named here, applied per-region in `docs/specs/screen-spec.md`.
 | `RefreshButton` | `color-action-primary-*`, `:hover` (`blue-700`)/`:focus-visible` (`blue-500` outline)/`:disabled` (0.5 opacity, disabled while a load is in flight — issue #38 P2-5/P3-8), 24×24px minimum size |
 | `RepoFilter` | native `<select>`, `font-size-body` (issue #29 requirement 2 — client-side filter over an already-fetched payload, no refetch); `color-border-default` border, `:focus-visible` (`blue-500` outline), 24×24px minimum size (issue #38 P2-5) |
 | `SummaryChip` | `status-*` pair matching its metric, `font-size-300` |
-| `DataTable` | `space-table-cell-padding-*`, `font-size-body`, `color-border-default`, `color-surface-raised`, `min-width: 640px` (issue #38 P1-1), visually-hidden `<caption>` + `th[scope=col]` (issue #38 P2-7), `tr:hover` (`neutral-100`)/`tr.selected-row` (`status-info-background`) row states (issue #38 P2-7/P3-8). Issue/PR cells: leading icon-only `row-toggle` disclosure button (▸/▾, no color token — inherits text color, 24×24px minimum size per issue #38 P2-5) + trailing `#<n>` link (`.number-link`, `color-action-primary-background`, issue #36) |
+| `DataTable` | `space-table-cell-padding-*`, `font-size-body`, `color-border-default`, `color-surface-raised`, `min-width: 640px` (issue #38 P1-1), visually-hidden `<caption>` + `th[scope=col]` (issue #38 P2-7), `tr:hover` (`neutral-100`)/`tr.selected-row` (`status-info-background`) row states (issue #38 P2-7/P3-8). Issue/PR cells: leading icon-only `row-toggle` disclosure button (▸/▾, no color token — inherits text color, 24×24px minimum size per issue #38 P2-5) + trailing `#<n>` link (`.number-link`, `color-action-primary-background`, issue #36, 24×24px minimum size per issue #56 F3) |
 | `AgeBucketBadge` | `status-neutral/warning/error` per §2.4 |
 | `RoleChip` | `status-neutral`, `font-family-mono` |
 | `AliveBadge` | `status-success/neutral` per §2.4 |
