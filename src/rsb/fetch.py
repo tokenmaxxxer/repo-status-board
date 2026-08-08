@@ -7,11 +7,42 @@ shell out to a real `spawn.py` (proposal §7).
 import concurrent.futures
 import functools
 import json
+import os
 import subprocess
 
 from rsb.model import PayloadError, merge_repos, normalize_payload
 
 DEFAULT_TIMEOUT_SECONDS = 60
+
+
+def _redact_paths(text):
+    """Collapse absolute-path-looking runs of text to their final path segment.
+
+    Splits on single spaces and merges a leading `/`-starting word with
+    every immediately-following word that still contains a `/` — so a
+    path with an embedded space (e.g. a macOS `/Users/Jane Doe/repo` home
+    directory) gets fully redacted rather than leaving its later segments
+    exposed, which a whitespace-free-token-only regex would miss (warrant
+    hunt, before-landing, issue #62). A following word with no `/` (prose)
+    ends the run. Keeps error messages diagnosable (the failing filename
+    stays visible) without exposing the internal filesystem layout the
+    path implies (issue #62 R5d).
+    """
+    words = text.split(" ")
+    out = []
+    i = 0
+    while i < len(words):
+        word = words[i]
+        if word.startswith("/") and "/" in word[1:]:
+            end = i + 1
+            while end < len(words) and "/" in words[end]:
+                end += 1
+            out.append(os.path.basename(" ".join(words[i:end])))
+            i = end
+        else:
+            out.append(word)
+            i += 1
+    return " ".join(out)
 
 
 def run_flows_json(repo_config, timeout=DEFAULT_TIMEOUT_SECONDS):
@@ -32,12 +63,15 @@ def run_flows_json(repo_config, timeout=DEFAULT_TIMEOUT_SECONDS):
     except subprocess.TimeoutExpired:
         raise RuntimeError(f"flows --json timed out after {timeout}s") from None
     except OSError as e:
-        raise RuntimeError(f"failed to launch {argv[0]!r}: {e}") from e
+        detail = e.strerror if e.strerror is not None else str(e)
+        raise RuntimeError(
+            f"failed to launch {os.path.basename(argv[0])!r}: {_redact_paths(detail)}"
+        ) from e
 
     if result.returncode != 0:
         stderr_excerpt = (result.stderr or "").strip().splitlines()
         excerpt = stderr_excerpt[-1] if stderr_excerpt else f"exit code {result.returncode}"
-        raise RuntimeError(f"flows --json failed: {excerpt}")
+        raise RuntimeError(f"flows --json failed: {_redact_paths(excerpt)}")
 
     return result.stdout
 

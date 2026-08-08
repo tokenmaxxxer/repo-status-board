@@ -197,6 +197,20 @@ table.data-table tbody tr:hover {
 tr.selected-row {
   background: var(--color-status-info-background);
 }
+/* issue #62 R6d: the background tint alone is 1.09:1 against the table
+   surface and 1.01:1 against tr:hover's background (both far under the
+   3:1 WCAG 1.4.11 floor design-system.md §2.2 adopts), and tr:hover's
+   higher specificity ((0,2,3) vs (0,1,1)) wins on background outright,
+   so the highlight visibly disappeared on hover. box-shadow is immune
+   to that fight by construction (tr:hover never sets box-shadow) — no
+   specificity contest to win. Reuses this file's own left-accent idiom
+   (.hygiene-list li/.error-list li, :349-350) and the same
+   status-info-border token already used for :focus-visible outlines
+   (~5.17:1 against white, ~4.70:1 against the hover grey, ~4.75:1
+   against this rule's own background tint — design-system.md §2.2). */
+tr.selected-row td:first-child {
+  box-shadow: inset 3px 0 0 0 var(--color-status-info-border);
+}
 
 /* Each table scrolls horizontally on its own (issue #29 requirement 3) —
    independent of the page, no separate mobile card UI. `width: 100%`
@@ -316,10 +330,24 @@ tr.selected-row {
   cursor: pointer;
   padding: 0;
   font: inherit;
+  /* issue #62 R4e: #partial-retry (a <button class="link">) had no
+     min box — WCAG 2.5.5 24x24px touch target, same pattern as
+     .row-toggle/.number-link (dashboard.css:220-227/248-260). */
+  min-width: 24px;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .partial-banner summary {
   cursor: pointer;
   margin-top: var(--space-2);
+  /* issue #62 R4e2: horizontal axis already passes (full-width block);
+     only the vertical (line-height-only) axis failed 24px. display
+     stays at <summary>'s default list-item — switching to flex would
+     drop the native disclosure triangle (Chrome/Firefox tie the
+     marker to list-item/::marker rendering). */
+  min-height: 24px;
 }
 .partial-banner details[open] summary {
   margin-bottom: var(--space-2);
@@ -338,6 +366,9 @@ tr.selected-row {
 .error-state details summary {
   cursor: pointer;
   margin-top: var(--space-2);
+  /* issue #62 R4e2 — same min-height-only rationale as .partial-banner
+     summary above. */
+  min-height: 24px;
 }
 
 /* AccountingRow */

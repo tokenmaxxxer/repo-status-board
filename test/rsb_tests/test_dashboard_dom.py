@@ -31,6 +31,7 @@ from pathlib import Path
 import pytest
 
 DASHBOARD_JS = Path(__file__).resolve().parents[2] / "src" / "rsb" / "web" / "dashboard.js"
+DASHBOARD_CSS = Path(__file__).resolve().parents[2] / "src" / "rsb" / "web" / "dashboard.css"
 TEST_DIR = Path(__file__).resolve().parents[1]
 JSDOM_MODULE = TEST_DIR / "node_modules" / "jsdom"
 
@@ -48,7 +49,7 @@ DASHBOARD_HTML = """<!doctype html><html><body>
 </body></html>"""
 
 
-def _run_dom_js(script, fetch_body='throw new Error("fetch not stubbed");'):
+def _run_dom_js(script, fetch_body='throw new Error("fetch not stubbed");', html=None):
     """Load dashboard.js fresh against a real jsdom DOM, run `script`, return its JSON stdout.
 
     Same subprocess+JSON-on-stdout contract `_run_dashboard_js` uses
@@ -57,7 +58,9 @@ def _run_dom_js(script, fetch_body='throw new Error("fetch not stubbed");'):
     dashboard.js's require-time DOM-wiring seam actually fires.
     `script` runs after dashboard.js's auto-init `load()` call has had one
     macrotask tick to settle its fetch-stub-backed promise chain
-    (fetch -> res.json -> renderData).
+    (fetch -> res.json -> renderData). `html` defaults to DASHBOARD_HTML
+    (no stylesheet); pass `_dashboard_html_with_css()` when a test needs
+    getComputedStyle to resolve against the real, shipped dashboard.css.
     """
     if shutil.which("node") is None:
         pytest.skip("node is not installed; skipping dashboard.js DOM test")
@@ -83,7 +86,7 @@ async function main() {
 
 main().catch((err) => { console.error(err.stack || String(err)); process.exit(1); });
 """ % {
-        "html": json.dumps(DASHBOARD_HTML),
+        "html": json.dumps(html if html is not None else DASHBOARD_HTML),
         "fetch_body": fetch_body,
         "dashboard_path": json.dumps(str(DASHBOARD_JS)),
         "script": script,
@@ -93,6 +96,18 @@ main().catch((err) => { console.error(err.stack || String(err)); process.exit(1)
     )
     assert result.returncode == 0, f"node script failed:\n{result.stderr}"
     return json.loads(result.stdout)
+
+
+def _dashboard_html_with_css():
+    """DASHBOARD_HTML with the real, shipped dashboard.css inlined as <style>,
+    so getComputedStyle in these tests resolves against actual CSS rules
+    rather than the browser/jsdom default stylesheet."""
+    if not DASHBOARD_CSS.exists():
+        pytest.skip("dashboard.css not found")
+    return DASHBOARD_HTML.replace(
+        "<!doctype html><html><body>",
+        "<!doctype html><html><head><style>%s</style></head><body>" % DASHBOARD_CSS.read_text(),
+    )
 
 
 def _fetch_ok(payload):
@@ -276,6 +291,51 @@ def test_partial_failure_raw_message_absent_from_main_content_and_errors_section
     assert result["errorsHeadingExists"] is False
     assert result["errorListExists"] is False
     assert result["bannerHasCollapsedMessage"] is True
+
+
+# ---- 24x24px touch-target sizing (issue #62 R4e/R4e2) ---------------------
+# Traces to docs/issue-38/reports/conformance-review.md R4e/R4e2:
+# #partial-retry and the two <summary> disclosure controls had no
+# guaranteed min-box. getComputedStyle against the real, shipped
+# dashboard.css (loaded via _dashboard_html_with_css()) in each element's
+# real rendered DOM context, not a text grep — per R9e's finding that grep
+# structurally cannot catch this defect class.
+
+
+def test_partial_retry_and_its_summary_meet_24px_min_box():
+    payload = _board_payload(
+        generated_at_by_repo={"repo-a": "2026-08-03T00:00:00Z"},
+        errors=[{"repo": "repo-b", "message": "boom"}],
+    )
+    result = _run_dom_js(
+        """
+        const retryStyle = window.getComputedStyle(document.getElementById("partial-retry"));
+        const summaryStyle = window.getComputedStyle(document.querySelector(".partial-banner summary"));
+        console.log(JSON.stringify({
+          retryMinWidth: retryStyle.minWidth,
+          retryMinHeight: retryStyle.minHeight,
+          summaryMinHeight: summaryStyle.minHeight,
+        }));
+        """,
+        fetch_body=_fetch_ok(payload),
+        html=_dashboard_html_with_css(),
+    )
+    assert result["retryMinWidth"] == "24px"
+    assert result["retryMinHeight"] == "24px"
+    assert result["summaryMinHeight"] == "24px"
+
+
+def test_error_state_summary_meets_24px_min_height():
+    payload = _board_payload(errors=[{"repo": "repo-a", "message": "boom"}])
+    result = _run_dom_js(
+        """
+        const summaryStyle = window.getComputedStyle(document.querySelector(".error-state details summary"));
+        console.log(JSON.stringify({ summaryMinHeight: summaryStyle.minHeight }));
+        """,
+        fetch_body=_fetch_ok(payload),
+        html=_dashboard_html_with_css(),
+    )
+    assert result["summaryMinHeight"] == "24px"
 
 
 # ---- `load()` fetch path ---------------------------------------------------

@@ -179,10 +179,13 @@ background, `font-family-base` for all text unless noted.
   the page's own `<h1 id="page-title">` stays the only `<h1>` in the
   document (issue #38 P2-6, `font-size-heading`) — plus a generic
   summary line "The board data couldn't be loaded.", a collapsed
-  `<details><summary>Details</summary>...` holding the raw joined repo
+  `<details><summary>Details</summary>...` holding the joined repo
   error messages (`color-text-secondary`, not shown by default — issue
-  #38 P2-6, internal paths/provider errors no longer expose themselves
-  at a glance), and a primary Retry button (`color-action-primary-*`).
+  #38 P2-6; any internal filesystem path in those messages is masked
+  at generation in `fetch.py`, not merely collapsed behind the closed
+  `<details>` — issue #62 R5d), and a primary Retry button
+  (`color-action-primary-*`). This `<summary>` control carries the
+  24×24px minimum touch-target size (issue #62 R4e2).
   The whole state is `role="alert"` and `#main-content` gets
   `aria-busy="false"` once it renders. Icon/heading area uses
   `status-error` accent. No stale content shown underneath.
@@ -202,7 +205,12 @@ background, `font-family-base` for all text unless noted.
   collapsed-detail structure named here is now actually wired into
   `dashboard.js` (issue #38 P2-6 finishes the gap
   `docs/issue-29/reports/implementation.md` "Open findings" left open —
-  the per-repo detail is no longer always-visible).
+  the per-repo detail is no longer always-visible). `{message}` has any
+  internal filesystem path masked at generation in `fetch.py` before it
+  ever reaches this template, not merely collapsed behind the `<details>`
+  (issue #62 R5d). The Retry link/button (`#partial-retry`) and this
+  `<summary>` control both carry the 24×24px minimum touch-target size
+  (issue #62 R4e/R4e2).
 - Retry action styled as a text/link button in
   `color-action-primary-foreground` on the warning background (falls
   back to `status-warning`'s foreground token if the action-primary
