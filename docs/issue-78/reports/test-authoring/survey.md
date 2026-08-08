@@ -86,6 +86,14 @@ rendered dashboard tables (via the existing `_run_dom_js` +
 direct, unambiguous translation of the Given/When/Then — no alternative
 technique to weigh.
 
+## Scout: skipped
+
+Skip condition 2 (scout-directive) applies — the spec leaves no
+product-facing or exemplar-comparable design decision open. See "Design
+decision: how to satisfy the selector-scoping constraint" above for the
+one implementation choice that was open, resolved here rather than via
+external scouting.
+
 ## Scoping note
 
 `write_scope: ['test/**']` for this role. This survey and the phase-1
