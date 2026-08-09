@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: landed
 files:
   - docs/issue-81/reports/product-discovery/current-state.md
   - docs/issue-81/reports/product-discovery/scout-brief.md
@@ -130,4 +130,5 @@ fresh judgment at measurement time.
 
 ## What did not work
 
-(none yet — appended during phase 2 if applicable)
+(none — phase 2 applied the registered rule directly; see
+`docs/issue-81/reports/product-discovery.md` for the landed record.)
