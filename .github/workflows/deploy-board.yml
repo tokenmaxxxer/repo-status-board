@@ -44,7 +44,7 @@ jobs:
       - name: Generate board.json
         env:
           GH_TOKEN: ${{ github.token }}
-        run: rsb --config .github/boards.ci.toml --json > board.json
+        run: rsb --config .github/boards.ci.toml --json --allow-partial --timeout 240 > board.json
 
       - name: Assemble Pages site
         run: |
